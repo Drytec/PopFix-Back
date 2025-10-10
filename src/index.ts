@@ -3,7 +3,8 @@ import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import helmet from "helmet";
 import cors from "cors";
-import routes from "./routes/user";
+import userRoutes from "./routes/user";
+import authRoutes from "./routes/resetPass";
 
 dotenv.config();
 
@@ -17,7 +18,8 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/api/users", routes);
+app.use("/api/users", userRoutes);
+app.use("/api/auth", authRoutes);
 
 app.get("/", (_req: Request, res: Response) => {
   res.send("Backend API is running 🚀");
@@ -25,5 +27,5 @@ app.get("/", (_req: Request, res: Response) => {
 
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port http://localhost:${PORT}`);
 });
