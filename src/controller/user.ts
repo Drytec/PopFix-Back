@@ -71,3 +71,20 @@ export async function getUserId(req: Request, res: Response) {
       }
 }
 
+export async function updateUserId(req: Request, res: Response) {
+    try{
+        const {id} = req.params;
+        const updates = req.body;
+        const updatedUser = await updateUser(id, updates);
+        if(!id){
+            return res.status(404).json({error: "Usuario no encontrado"});
+        }
+        if (!updatedUser){
+            return res.status(400).json({error: "Actualizacion Fallida"});
+        }
+        return res.status(200).json(updatedUser);
+    }
+    catch (err: any) {
+        return res.status(500).json({ error: err.message });
+      }
+}
