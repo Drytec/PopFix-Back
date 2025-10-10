@@ -1,10 +1,9 @@
 import {movieModel} from "./movie";
 
 export interface UserModel {
-    userId: number;
     name: string;
     email: string;
-    lastname: string;
+    surname: string;
     age: number;
     password: string;
     resetPasswordToken?: string;
