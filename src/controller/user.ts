@@ -8,7 +8,7 @@ import {
   getUserByEmail,
 } from "../services/user";
 import bcrypt from "bcryptjs";
-
+import { verifyToken, generateToken } from "../services/auth"; 
 
 export async function registerUser(req: Request, res: Response) {
   try {
@@ -23,3 +23,51 @@ export async function registerUser(req: Request, res: Response) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+export async function loginUser(req: Request, res: Response) {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password)
+      return res.status(400).json({ error: "Email y contraseña requeridos" });
+       const user = await getUserByEmail(email);
+    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword)
+      return res.status(401).json({ error: "Contraseña incorrecta" });
+
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    });
+
+    return res.status(200).json({
+      message: "Login exitoso",
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+export async function getUserId(req: Request, res: Response) {
+    try{
+        const {id} = req.params;
+        const user = await getUserById(id);
+        if(!user){
+            return res.status(404).json({error: "Usuario no encontrado"});
+        }
+        return res.status(200).json(user);
+    }
+    catch (err: any) {
+        return res.status(500).json({ error: err.message });
+      }
+}
+
