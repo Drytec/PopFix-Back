@@ -23,8 +23,42 @@ export async function resetPassword(req: Request, res: Response) {
   try {
     const { token, newPassword } = req.body;
 
+    // Validaciones de seguridad para nueva contraseña
+    const pwdStr =
+      typeof newPassword === "string"
+        ? newPassword
+        : typeof newPassword === "number"
+        ? String(newPassword)
+        : null;
+    
+    if (!pwdStr || pwdStr.length < 8) {
+      return res.status(400).json({ error: "La contraseña debe tener al menos 8 caracteres" });
+    }
+
+    // Prevenir contraseñas comunes y patrones de SQL injection
+    const forbiddenPatterns = [
+      /(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b)/i, // SQL keywords
+      /(\bUNION\b|\bOR\b.*=.*\b|\bAND\b.*=.*\b)/i, // SQL injection patterns
+      /['"`;\\]/g, // Caracteres peligrosos
+      /^\s+$/ // Solo espacios en blanco
+    ];
+
+    const hasForbiddenPattern = forbiddenPatterns.some(pattern => pattern.test(pwdStr));
+    if (hasForbiddenPattern) {
+      return res.status(400).json({ 
+        error: "La contraseña contiene caracteres o patrones no permitidos" 
+      });
+    }
+
+    // Validar que tenga al menos una letra y un número para mayor seguridad
+    if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(pwdStr)) {
+      return res.status(400).json({ 
+        error: "La contraseña debe contener al menos una letra y un número" 
+      });
+    }
+
     const decoded = verifyResetToken(token) as { email: string };
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(pwdStr, 10);
 
     const { error } = await supabase
       .from("users")
