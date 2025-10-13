@@ -12,13 +12,73 @@ import { verifyToken, generateToken } from "../services/auth";
 
 export async function registerUser(req: Request, res: Response) {
   try {
-    const { email, name, surname, age, password } = req.body;
-    if (!email || !name || !surname || !age || !password) {
-      return res.status(400).json({ error: "Faltan campos obligatorios" });
+    const { email, name, age, password } = req.body;
+
+    // Validaciones básicas
+    if (!email || !name || age === undefined || !password) {
+      return res.status(400).json({ error: "Faltan campos obligatorios: name, email, age, password" });
     }
 
-    const newUser = await createUser(email, name, surname, age, password);
-    return res.status(201).json(newUser);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (typeof email !== "string" || !emailRegex.test(email)) {
+      return res.status(400).json({ error: "Email inválido" });
+    }
+
+    if (typeof name !== "string" || name.trim().length === 0) {
+      return res.status(400).json({ error: "Nombre inválido" });
+    }
+
+    const ageNum = Number(age);
+    if (Number.isNaN(ageNum) || ageNum < 0 || ageNum > 120) {
+      return res.status(400).json({ error: "Edad inválida" });
+    }
+
+    // Validaciones de seguridad para contraseñas
+    const passwordStr =
+      typeof password === "string"
+        ? password
+        : typeof password === "number"
+        ? String(password)
+        : null;
+
+    if (!passwordStr || passwordStr.length < 8) {
+      return res.status(400).json({ error: "La contraseña debe tener al menos 8 caracteres" });
+    }
+
+    // Prevenir contraseñas comunes y patrones de SQL injection
+    const forbiddenPatterns = [
+      /(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b)/i, // SQL keywords
+      /(\bUNION\b|\bOR\b.*=.*\b|\bAND\b.*=.*\b)/i, // SQL injection patterns
+      /['"`;\\]/g, // Caracteres peligrosos
+      /^\s+$/ // Solo espacios en blanco
+    ];
+
+    const hasForbiddenPattern = forbiddenPatterns.some(pattern => pattern.test(passwordStr));
+    if (hasForbiddenPattern) {
+      return res.status(400).json({ 
+        error: "La contraseña contiene caracteres o patrones no permitidos" 
+      });
+    }
+
+    // Validar que tenga al menos una letra y un número para mayor seguridad
+    if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(passwordStr)) {
+      return res.status(400).json({ 
+        error: "La contraseña debe contener al menos una letra y un número" 
+      });
+    }
+
+    // Evitar emails duplicados
+    const existing = await getUserByEmail(email);
+    if (existing) {
+      return res.status(409).json({ error: "El email ya está registrado" });
+    }
+
+    // Crear usuario solo con los campos permitidos
+    const created = await createUser(email, name, ageNum, passwordStr);
+    const safeUser = created
+      ? { id: created.id, email: created.email, name: created.name, age: created.age }
+      : null;
+    return res.status(201).json(safeUser);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -64,7 +124,8 @@ export async function getUserId(req: Request, res: Response) {
         if(!user){
             return res.status(404).json({error: "Usuario no encontrado"});
         }
-        return res.status(200).json(user);
+    const { password, ...safe } = user as any;
+    return res.status(200).json(safe);
     }
     catch (err: any) {
         return res.status(500).json({ error: err.message });
@@ -74,15 +135,65 @@ export async function getUserId(req: Request, res: Response) {
 export async function updateUserId(req: Request, res: Response) {
     try{
         const {id} = req.params;
-        const updates = req.body;
-        const updatedUser = await updateUser(id, updates);
+        const body = req.body || {};
+        // Solo permitir actualizar estos campos
+        const allowed: Record<string, any> = {};
+        if (typeof body.name === "string") allowed.name = body.name;
+        if (typeof body.email === "string") allowed.email = body.email;
+        if (body.age !== undefined) {
+          const ageNum = Number(body.age);
+          if (!Number.isNaN(ageNum)) allowed.age = ageNum;
+        }
+        // Validaciones de seguridad para contraseñas en actualización
+        if (body.password !== undefined) {
+          const passwordStr =
+            typeof body.password === "string"
+              ? body.password
+              : typeof body.password === "number"
+              ? String(body.password)
+              : null;
+
+          if (passwordStr && passwordStr.length > 0) {
+            // Validar longitud mínima
+            if (passwordStr.length < 8) {
+              return res.status(400).json({ error: "La contraseña debe tener al menos 8 caracteres" });
+            }
+
+            // Prevenir contraseñas comunes y patrones de SQL injection
+            const forbiddenPatterns = [
+              /(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b)/i, // SQL keywords
+              /(\bUNION\b|\bOR\b.*=.*\b|\bAND\b.*=.*\b)/i, // SQL injection patterns
+              /['"`;\\]/g, // Caracteres peligrosos
+              /^\s+$/ // Solo espacios en blanco
+            ];
+
+            const hasForbiddenPattern = forbiddenPatterns.some(pattern => pattern.test(passwordStr));
+            if (hasForbiddenPattern) {
+              return res.status(400).json({ 
+                error: "La contraseña contiene caracteres o patrones no permitidos" 
+              });
+            }
+
+            // Validar que tenga al menos una letra y un número para mayor seguridad
+            if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(passwordStr)) {
+              return res.status(400).json({ 
+                error: "La contraseña debe contener al menos una letra y un número" 
+              });
+            }
+
+            allowed.password = passwordStr; // será hasheada en el servicio
+          }
+        }
+
+        const updatedUser = await updateUser(id, allowed);
         if(!id){
             return res.status(404).json({error: "Usuario no encontrado"});
         }
         if (!updatedUser){
             return res.status(400).json({error: "Actualizacion Fallida"});
         }
-        return res.status(200).json(updatedUser);
+        const { password, ...safe } = updatedUser as any;
+        return res.status(200).json(safe);
     }
     catch (err: any) {
         return res.status(500).json({ error: err.message });
@@ -108,7 +219,11 @@ export async function deleteUserId(req: Request, res: Response) {
 export async function getAllUsers(req: Request, res: Response) {
   try {
     const users = await getUsers();
-    return res.status(200).json(users);
+    const safe = (users || []).map((u: any) => {
+      const { password, ...rest } = u || {};
+      return rest;
+    });
+    return res.status(200).json(safe);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   } 
