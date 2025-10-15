@@ -1,3 +1,39 @@
+// Cambiar contraseña autenticado
+export async function changePassword(req: Request, res: Response) {
+  try {
+    const userId = req.user?.id; // Asegúrate de tener auth middleware que ponga el id
+    const { currentPassword, newPassword } = req.body;
+    if (!userId || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Faltan campos obligatorios" });
+    }
+    const user = await getUserById(userId);
+    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) return res.status(401).json({ error: "Contraseña actual incorrecta" });
+    // Validaciones de seguridad para la nueva contraseña
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: "La nueva contraseña debe tener al menos 8 caracteres" });
+    }
+    const forbiddenPatterns = [
+      /(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b)/i,
+      /(\bUNION\b|\bOR\b.*=.*\b|\bAND\b.*=.*\b)/i,
+      /['"`;\\]/g,
+      /^\s+$/
+    ];
+    const hasForbiddenPattern = forbiddenPatterns.some(pattern => pattern.test(newPassword));
+    if (hasForbiddenPattern) {
+      return res.status(400).json({ error: "La nueva contraseña contiene caracteres o patrones no permitidos" });
+    }
+    if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(newPassword)) {
+      return res.status(400).json({ error: "La nueva contraseña debe contener al menos una letra y un número" });
+    }
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await updateUser(userId, { password: hashed });
+    return res.json({ message: "Contraseña actualizada correctamente" });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
 import { Request, Response } from "express";
 import {
   getUsers,
