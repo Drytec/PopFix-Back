@@ -1,11 +1,15 @@
 import nodemailer from "nodemailer";
 
+
 export async function sendResetPasswordEmail(to: string, token: string) {
+  // Configuración SMTP completa, compatible con Gmail y otros proveedores
   const transporter = nodemailer.createTransport({
-    service: "gmail", 
+    host: process.env.EMAIL_HOST,
+    port: Number(process.env.EMAIL_PORT),
+    secure: process.env.EMAIL_SECURE === "true", // true para 465, false para otros
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      pass: process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD,
     },
   });
 
