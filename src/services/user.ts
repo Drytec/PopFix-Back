@@ -29,9 +29,9 @@ export async function getUserByEmail(email: string) {
     .from("users")
     .select("*")
     .eq("email", email)
-    .single();
+    .maybeSingle();
   if (error) throw new Error(error.message);
-  return data;
+  return data; // could be null if not found
 }
 
 /**
@@ -51,14 +51,14 @@ export async function getUserByEmail(email: string) {
 export async function createUser(
   email: string,
   name: string,
-  surname: string,
   age: number,
   password: string,
 ) {
   const hashedPassword = await bcrypt.hash(password, 10);
+  // Agrega surname genérico para cumplir con NOT NULL
   const { data, error } = await supabase
     .from("users")
-    .insert([{ email, name, surname, age, password: hashedPassword }])
+    .insert([{ email, name, age, password: hashedPassword, surname: 'N/A' }])
     .select();
 
   if (error) throw new Error(error.message);
@@ -95,9 +95,17 @@ export async function getUserById(id: string) {
  * @throws {Error} If a Supabase error occurs during the update.
  */
 export async function updateUser(id: string, updates: Record<string, any>) {
+  const toUpdate: Record<string, any> = {};
+  if (typeof updates.name === "string") toUpdate.name = updates.name;
+  if (typeof updates.email === "string") toUpdate.email = updates.email;
+  if (typeof updates.age === "number") toUpdate.age = updates.age;
+  if (typeof updates.password === "string" && updates.password.length >= 8) {
+    toUpdate.password = await bcrypt.hash(updates.password, 10);
+  }
+
   const { data, error } = await supabase
     .from("users")
-    .update(updates)
+    .update(toUpdate)
     .eq("id", id)
     .select();
   if (error) throw new Error(error.message);
