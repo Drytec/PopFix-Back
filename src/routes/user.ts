@@ -8,6 +8,7 @@ import {
     getAllUsers,
     changePassword,
 } from '../controller/user';
+import { authMiddleware } from '../middlewares/auth';
 
 const router = Router();
 
@@ -21,9 +22,9 @@ router.get("/:id", getUserId);
 
 router.put("/:id", updateUserId);
 
+// Ruta protegida: requiere autenticación
+router.post("/change-password", authMiddleware, changePassword);
 
-// Esta ruta debe ir protegida con auth middleware
-router.post("/change-password", changePassword);
 router.delete("/:id", deleteUserId);
 
 export default router;
