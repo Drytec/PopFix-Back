@@ -1,0 +1,35 @@
+import { supabase } from "../config/database";
+
+export async function updateUserMovie(
+  userId: string,
+  movieId: string,
+  updates: Record<string, any>,
+) {
+  const toUpdate: Record<string, any> = {};
+
+  if (updates.is_favorite === null) {
+    toUpdate.is_favorite = null;
+  } else if (typeof updates.is_favorite === "boolean") {
+    toUpdate.is_favorite = updates.is_favorite;
+  }
+
+  if (updates.rating === null) {
+    toUpdate.rating = null;
+  } else if (
+    typeof updates.rating === "number" &&
+    updates.rating >= 1 &&
+    updates.rating <= 5
+  ) {
+    toUpdate.rating = updates.rating;
+  }
+
+  const { data, error } = await supabase
+    .from("user_movies")
+    .update(toUpdate)
+    .eq("user_id", userId)
+    .eq("movie_id", movieId)
+    .select();
+
+  if (error) throw new Error(error.message);
+  return data[0];
+}
