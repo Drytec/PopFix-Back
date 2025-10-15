@@ -1,4 +1,27 @@
-// Cambiar contraseña autenticado
+import { Request, Response } from "express";
+import {
+  getUsers,
+  createUser,
+  getUserById,
+  updateUser,
+  deleteUser,
+  getUserByEmail,
+} from "../services/user";
+import bcrypt from "bcryptjs";
+import { verifyToken, generateToken } from "../services/auth";
+
+// Extiende la interfaz Request para incluir 'user'
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        [key: string]: any;
+      };
+    }
+  }
+}
+
 export async function changePassword(req: Request, res: Response) {
   try {
     const userId = req.user?.id; // Asegúrate de tener auth middleware que ponga el id
@@ -34,17 +57,6 @@ export async function changePassword(req: Request, res: Response) {
     return res.status(500).json({ error: err.message });
   }
 }
-import { Request, Response } from "express";
-import {
-  getUsers,
-  createUser,
-  getUserById,
-  updateUser,
-  deleteUser,
-  getUserByEmail,
-} from "../services/user";
-import bcrypt from "bcryptjs";
-import { verifyToken, generateToken } from "../services/auth"; 
 
 export async function registerUser(req: Request, res: Response) {
   try {
