@@ -22,6 +22,10 @@ declare global {
   }
 }
 
+export async function logoutUser(req: Request, res: Response) {
+  // No hay lógica de backend para logout con JWT stateless
+  return res.status(200).json({ message: "Logout exitoso" });
+}
 export async function changePassword(req: Request, res: Response) {
   try {
     const userId = req.user?.id; // Asegúrate de tener auth middleware que ponga el id
