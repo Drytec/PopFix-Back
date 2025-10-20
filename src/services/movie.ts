@@ -111,3 +111,19 @@ export async function getUserMovies(userId: string) {
   if (error) throw new Error(error.message);
   return data;
 }
+
+export async function getUserFavoriteMovies(userId: string) {
+  const { data, error } = await supabase
+    .from("movies")
+    .select(
+      `
+        movie_id,
+        movies ( id, title, thumbnail_url, genre, source )
+      `,
+    )
+    .eq("user_id", userId)
+    .eq("is_favorite", true);
+
+  if (error) throw new Error(error.message);
+  return data;
+}

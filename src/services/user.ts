@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 /**
  * Retrieves all users from the "users" table in Supabase.
- * 
+ *
  * @async
  * @function getUsers
  * @returns {Promise<Object[]>} A promise that resolves to an array of user objects.
@@ -17,7 +17,7 @@ export async function getUsers() {
 
 /**
  * Retrieves a user by their email address.
- * 
+ *
  * @async
  * @function getUserByEmail
  * @param {string} email - The email of the user to retrieve.
@@ -37,7 +37,7 @@ export async function getUserByEmail(email: string) {
 /**
  * Creates a new user and inserts it into the "users" table.
  * The password is automatically hashed using bcrypt before being stored.
- * 
+ *
  * @async
  * @function createUser
  * @param {string} email - The user's email address.
@@ -58,7 +58,7 @@ export async function createUser(
   // Agrega surname genérico para cumplir con NOT NULL
   const { data, error } = await supabase
     .from("users")
-    .insert([{ email, name, age, password: hashedPassword, surname: 'N/A' }])
+    .insert([{ email, name, age, password: hashedPassword, surname: "N/A" }])
     .select();
 
   if (error) throw new Error(error.message);
@@ -67,7 +67,7 @@ export async function createUser(
 
 /**
  * Retrieves a user by their unique ID.
- * 
+ *
  * @async
  * @function getUserById
  * @param {string} id - The unique identifier of the user.
@@ -86,7 +86,7 @@ export async function getUserById(id: string) {
 
 /**
  * Updates an existing user's information in the "users" table.
- * 
+ *
  * @async
  * @function updateUser
  * @param {string} id - The ID of the user to update.
@@ -114,7 +114,7 @@ export async function updateUser(id: string, updates: Record<string, any>) {
 
 /**
  * Deletes a user from the "users" table by their ID.
- * 
+ *
  * @async
  * @function deleteUser
  * @param {string} id - The ID of the user to delete.

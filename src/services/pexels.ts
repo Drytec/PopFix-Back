@@ -26,7 +26,7 @@ export async function searchMovies(query: string, perPage = 10) {
       headers: {
         Authorization: API_KEY,
       },
-    }
+    },
   );
 
   if (!response.ok) {
@@ -54,12 +54,17 @@ export async function searchMovies(query: string, perPage = 10) {
  * console.log(popular.map(video => video.url));
  */
 export async function getPopularMovies(perPage = 10) {
-  const response = await fetch(`${PEXELS_BASE_URL}/videos/popular?per_page=${perPage}`, {
-    headers: { Authorization: API_KEY },
-  });
+  const response = await fetch(
+    `${PEXELS_BASE_URL}/videos/popular?per_page=${perPage}`,
+    {
+      headers: { Authorization: API_KEY },
+    },
+  );
 
   if (!response.ok) {
-    throw new Error(`Error al obtener videos populares: ${response.statusText}`);
+    throw new Error(
+      `Error al obtener videos populares: ${response.statusText}`,
+    );
   }
 
   const data: any = await response.json();

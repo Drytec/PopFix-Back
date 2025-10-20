@@ -22,9 +22,10 @@ export async function registerUser(req: Request, res: Response) {
   try {
     const { email, name, age, password } = req.body;
 
-    
     if (!email || !name || age === undefined || !password) {
-      return res.status(400).json({ error: "Faltan campos obligatorios: name, email, age, password" });
+      return res.status(400).json({
+        error: "Faltan campos obligatorios: name, email, age, password",
+      });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -41,50 +42,54 @@ export async function registerUser(req: Request, res: Response) {
       return res.status(400).json({ error: "Edad inválida" });
     }
 
-  
     const passwordStr =
       typeof password === "string"
         ? password
         : typeof password === "number"
-        ? String(password)
-        : null;
+          ? String(password)
+          : null;
 
     if (!passwordStr || passwordStr.length < 8) {
-      return res.status(400).json({ error: "La contraseña debe tener al menos 8 caracteres" });
+      return res
+        .status(400)
+        .json({ error: "La contraseña debe tener al menos 8 caracteres" });
     }
 
-  
     const forbiddenPatterns = [
       /(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b)/i, // SQL keywords
       /(\bUNION\b|\bOR\b.*=.*\b|\bAND\b.*=.*\b)/i, // SQL injection patterns
-      /['"`;\\]/g, 
-      /^\s+$/
+      /['"`;\\]/g,
+      /^\s+$/,
     ];
 
-    const hasForbiddenPattern = forbiddenPatterns.some(pattern => pattern.test(passwordStr));
+    const hasForbiddenPattern = forbiddenPatterns.some((pattern) =>
+      pattern.test(passwordStr),
+    );
     if (hasForbiddenPattern) {
-      return res.status(400).json({ 
-        error: "La contraseña contiene caracteres o patrones no permitidos" 
+      return res.status(400).json({
+        error: "La contraseña contiene caracteres o patrones no permitidos",
       });
     }
 
-    
     if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(passwordStr)) {
-      return res.status(400).json({ 
-        error: "La contraseña debe contener al menos una letra y un número" 
+      return res.status(400).json({
+        error: "La contraseña debe contener al menos una letra y un número",
       });
     }
 
-    
     const existing = await getUserByEmail(email);
     if (existing) {
       return res.status(409).json({ error: "El email ya está registrado" });
     }
 
-   
     const created = await createUser(email, name, ageNum, passwordStr);
     const safeUser = created
-      ? { id: created.id, email: created.email, name: created.name, age: created.age }
+      ? {
+          id: created.id,
+          email: created.email,
+          name: created.name,
+          age: created.age,
+        }
       : null;
     return res.status(201).json(safeUser);
   } catch (err: any) {
@@ -165,61 +170,54 @@ export async function getUserId(req: Request, res: Response) {
  * @returns {Promise<Response>} - Returns the updated user data.
  */
 export async function updateUserId(req: Request, res: Response) {
-    try{
-        const {id} = req.params;
-        const body = req.body || {};
-        
-        const allowed: Record<string, any> = {};
-        if (typeof body.name === "string") allowed.name = body.name;
-        if (typeof body.email === "string") allowed.email = body.email;
-        if (body.age !== undefined) {
-          const ageNum = Number(body.age);
-          if (!Number.isNaN(ageNum)) allowed.age = ageNum;
-        }
-        
-        if (body.password !== undefined) {
-          const passwordStr =
-            typeof body.password === "string"
-              ? body.password
-              : typeof body.password === "number"
-              ? String(body.password)
-              : null;
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
 
-          if (passwordStr && passwordStr.length > 0) {
-            // Validar longitud mínima
-            if (passwordStr.length < 8) {
-              return res.status(400).json({ error: "La contraseña debe tener al menos 8 caracteres" });
-            }
+    const allowed: Record<string, any> = {};
+    if (typeof body.name === "string") allowed.name = body.name;
+    if (typeof body.email === "string") allowed.email = body.email;
+    if (body.age !== undefined) {
+      const ageNum = Number(body.age);
+      if (!Number.isNaN(ageNum)) allowed.age = ageNum;
+    }
 
-            
-            const forbiddenPatterns = [
-              /(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b)/i, // SQL keywords
-              /(\bUNION\b|\bOR\b.*=.*\b|\bAND\b.*=.*\b)/i, // SQL injection patterns
-              /['"`;\\]/g,
-              /^\s+$/ 
-            ];
+    if (body.password !== undefined) {
+      const passwordStr =
+        typeof body.password === "string"
+          ? body.password
+          : typeof body.password === "number"
+            ? String(body.password)
+            : null;
 
-            const hasForbiddenPattern = forbiddenPatterns.some(pattern => pattern.test(passwordStr));
-            if (hasForbiddenPattern) {
-              return res.status(400).json({ 
-                error: "La contraseña contiene caracteres o patrones no permitidos" 
-              });
-            }
-
-            
-            if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(passwordStr)) {
-              return res.status(400).json({ 
-                error: "La contraseña debe contener al menos una letra y un número" 
-              });
-            }
-
-            allowed.password = passwordStr; 
-          }
+      if (passwordStr && passwordStr.length > 0) {
+        // Validar longitud mínima
+        if (passwordStr.length < 8) {
+          return res
+            .status(400)
+            .json({ error: "La contraseña debe tener al menos 8 caracteres" });
         }
 
-        const updatedUser = await updateUser(id, allowed);
-        if(!id){
-            return res.status(404).json({error: "Usuario no encontrado"});
+        const forbiddenPatterns = [
+          /(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b)/i, // SQL keywords
+          /(\bUNION\b|\bOR\b.*=.*\b|\bAND\b.*=.*\b)/i, // SQL injection patterns
+          /['"`;\\]/g,
+          /^\s+$/,
+        ];
+
+        const hasForbiddenPattern = forbiddenPatterns.some((pattern) =>
+          pattern.test(passwordStr),
+        );
+        if (hasForbiddenPattern) {
+          return res.status(400).json({
+            error: "La contraseña contiene caracteres o patrones no permitidos",
+          });
+        }
+
+        if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(passwordStr)) {
+          return res.status(400).json({
+            error: "La contraseña debe contener al menos una letra y un número",
+          });
         }
         if (!updatedUser){
             return res.status(400).json({error: "Actualizacion Fallida"});
@@ -269,6 +267,15 @@ export async function getAllUsers(req: Request, res: Response) {
       return rest;
     });
     return res.status(200).json(safe);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+export async function logoutUser(req: Request, res: Response) {
+  try {
+    // Since JWTs are stateless, logout can be handled on the client side by deleting the token.
+
+    return res.status(200).json({ message: "Logout successful" });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
