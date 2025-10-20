@@ -54,7 +54,7 @@ export async function sendResetPasswordEmail(to: string, token: string) {
           <p>Para continuar con el proceso, haz clic en el siguiente botón:</p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" 
+            <a href="${resetLink}" 
                style="background-color: #000000; 
                       color: #ffffff; 
                       padding: 15px 30px; 
@@ -84,7 +84,7 @@ export async function sendResetPasswordEmail(to: string, token: string) {
         
         <p style="color: #999; font-size: 12px;">
           Si tienes problemas con el enlace, copia y pega esta URL en tu navegador:<br>
-          <span style="word-break: break-all;">${resetUrl}</span>
+          <span style="word-break: break-all;">${resetLink}</span>
         </p>
       </div>
     `,
