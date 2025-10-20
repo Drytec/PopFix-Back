@@ -9,7 +9,7 @@ export function verifyResetToken(token: string) {
   return jwt.verify(token, process.env.JWT_SECRET!);
 }
 
-// Middleware de autenticación para rutas protegidas
+
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
     const authHeader = req.headers.authorization;
@@ -20,8 +20,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
     
-    // Poner el usuario decodificado en req.user
-    req.user = {
+    
+    (req as any).user = {
       id: decoded.id,
       email: decoded.email,
       name: decoded.name
