@@ -1,5 +1,3 @@
-import fetch from "node-fetch";
-
 const PEXELS_BASE_URL = "https://api.pexels.com";
 const API_KEY = process.env.PEXELS_API_KEY!;
 
