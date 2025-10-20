@@ -5,6 +5,7 @@ import helmet from "helmet";
 import cors from "cors";
 import userRoutes from "./routes/user";
 import authRoutes from "./routes/resetPass";
+import pexelsRoutes from "./routes/pexels";
 
 dotenv.config();
 
@@ -20,7 +21,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
-
+app.use("/api/pexels", pexelsRoutes);
 app.get("/", (_req: Request, res: Response) => {
   res.send("Backend API is running 🚀");
 });

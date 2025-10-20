@@ -1,6 +1,25 @@
 import nodemailer from "nodemailer";
 
-
+/**
+ * Sends a password reset email to a specified user using Gmail's SMTP service.
+ *
+ * This function creates a transporter with Nodemailer using environment
+ * variables for authentication (`EMAIL_USER` and `EMAIL_PASS`), then sends
+ * a reset password email containing a unique token link.
+ *
+ * @async
+ * @function sendResetPasswordEmail
+ * @param {string} to - The recipient's email address.
+ * @param {string} token - The unique reset token to include in the email link.
+ * @returns {Promise<void>} A promise that resolves when the email is successfully sent.
+ * @throws {Error} If the email fails to send or transporter configuration is invalid.
+ *
+ * @example
+ * await sendResetPasswordEmail("user@example.com", "12345abcdef");
+ *
+ * // This will send an email to "user@example.com" with a link like:
+ * // https://yourfrontend.com/reset-password?token=12345abcdef
+ */
 export async function sendResetPasswordEmail(to: string, token: string) {
   // Configuración SMTP completa, compatible con Gmail y otros proveedores
   const transporter = nodemailer.createTransport({
@@ -13,8 +32,8 @@ export async function sendResetPasswordEmail(to: string, token: string) {
     },
   });
 
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-  console.log(process.env.FRONTEND_URL);
+  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
   const mailOptions = {
     from: `"Soporte PopFix" <${process.env.EMAIL_USER}>`,
     to,
@@ -35,7 +54,7 @@ export async function sendResetPasswordEmail(to: string, token: string) {
           <p>Para continuar con el proceso, haz clic en el siguiente botón:</p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" 
+            <a href="${resetLink}" 
                style="background-color: #000000; 
                       color: #ffffff; 
                       padding: 15px 30px; 
@@ -65,7 +84,7 @@ export async function sendResetPasswordEmail(to: string, token: string) {
         
         <p style="color: #999; font-size: 12px;">
           Si tienes problemas con el enlace, copia y pega esta URL en tu navegador:<br>
-          <span style="word-break: break-all;">${resetUrl}</span>
+          <span style="word-break: break-all;">${resetLink}</span>
         </p>
       </div>
     `,

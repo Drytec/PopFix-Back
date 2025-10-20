@@ -10,63 +10,19 @@ import {
 import bcrypt from "bcryptjs";
 import { verifyToken, generateToken } from "../services/auth";
 
-// Extiende la interfaz Request para incluir 'user'
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        [key: string]: any;
-      };
-    }
-  }
-}
-
-export async function logoutUser(req: Request, res: Response) {
-  // No hay lógica de backend para logout con JWT stateless
-  return res.status(200).json({ message: "Logout exitoso" });
-}
-export async function changePassword(req: Request, res: Response) {
-  try {
-    const userId = req.user?.id; // Asegúrate de tener auth middleware que ponga el id
-    const { currentPassword, newPassword } = req.body;
-    if (!userId || !currentPassword || !newPassword) {
-      return res.status(400).json({ error: "Faltan campos obligatorios" });
-    }
-    const user = await getUserById(userId);
-    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
-    const valid = await bcrypt.compare(currentPassword, user.password);
-    if (!valid) return res.status(401).json({ error: "Contraseña actual incorrecta" });
-    // Validaciones de seguridad para la nueva contraseña
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: "La nueva contraseña debe tener al menos 8 caracteres" });
-    }
-    const forbiddenPatterns = [
-      /(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b)/i,
-      /(\bUNION\b|\bOR\b.*=.*\b|\bAND\b.*=.*\b)/i,
-      /['"`;\\]/g,
-      /^\s+$/
-    ];
-    const hasForbiddenPattern = forbiddenPatterns.some(pattern => pattern.test(newPassword));
-    if (hasForbiddenPattern) {
-      return res.status(400).json({ error: "La nueva contraseña contiene caracteres o patrones no permitidos" });
-    }
-    if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(newPassword)) {
-      return res.status(400).json({ error: "La nueva contraseña debe contener al menos una letra y un número" });
-    }
-    const hashed = await bcrypt.hash(newPassword, 10);
-    await updateUser(userId, { password: hashed });
-    return res.json({ message: "Contraseña actualizada correctamente" });
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
-  }
-}
-
+/**
+ * Registers a new user in the system.
+ * @async
+ * @function registerUser
+ * @param {Request} req - Express request object containing user data in the body.
+ * @param {Response} res - Express response object.
+ * @returns {Promise<Response>} - Returns the created user or an error message.
+ */
 export async function registerUser(req: Request, res: Response) {
   try {
     const { email, name, age, password } = req.body;
 
-    // Validaciones básicas
+    
     if (!email || !name || age === undefined || !password) {
       return res.status(400).json({ error: "Faltan campos obligatorios: name, email, age, password" });
     }
@@ -85,7 +41,7 @@ export async function registerUser(req: Request, res: Response) {
       return res.status(400).json({ error: "Edad inválida" });
     }
 
-    // Validaciones de seguridad para contraseñas
+  
     const passwordStr =
       typeof password === "string"
         ? password
@@ -97,12 +53,12 @@ export async function registerUser(req: Request, res: Response) {
       return res.status(400).json({ error: "La contraseña debe tener al menos 8 caracteres" });
     }
 
-    // Prevenir contraseñas comunes y patrones de SQL injection
+  
     const forbiddenPatterns = [
       /(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b)/i, // SQL keywords
       /(\bUNION\b|\bOR\b.*=.*\b|\bAND\b.*=.*\b)/i, // SQL injection patterns
-      /['"`;\\]/g, // Caracteres peligrosos
-      /^\s+$/ // Solo espacios en blanco
+      /['"`;\\]/g, 
+      /^\s+$/
     ];
 
     const hasForbiddenPattern = forbiddenPatterns.some(pattern => pattern.test(passwordStr));
@@ -112,20 +68,20 @@ export async function registerUser(req: Request, res: Response) {
       });
     }
 
-    // Validar que tenga al menos una letra y un número para mayor seguridad
+    
     if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(passwordStr)) {
       return res.status(400).json({ 
         error: "La contraseña debe contener al menos una letra y un número" 
       });
     }
 
-    // Evitar emails duplicados
+    
     const existing = await getUserByEmail(email);
     if (existing) {
       return res.status(409).json({ error: "El email ya está registrado" });
     }
 
-    // Crear usuario solo con los campos permitidos
+   
     const created = await createUser(email, name, ageNum, passwordStr);
     const safeUser = created
       ? { id: created.id, email: created.email, name: created.name, age: created.age }
@@ -136,18 +92,27 @@ export async function registerUser(req: Request, res: Response) {
   }
 }
 
+/**
+ * Authenticates a user and generates a JWT token.
+ * @async
+ * @function loginUser
+ * @param {Request} req - Express request object containing login credentials.
+ * @param {Response} res - Express response object.
+ * @returns {Promise<Response>} - Returns a JWT token and user data if successful.
+ */
 export async function loginUser(req: Request, res: Response) {
   try {
     const { email, password } = req.body;
 
     if (!email || !password)
-      return res.status(400).json({ error: "Email y contraseña requeridos" });
-       const user = await getUserByEmail(email);
-    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+      return res.status(400).json({ error: "Email and password are required" });
+
+    const user = await getUserByEmail(email);
+    if (!user) return res.status(404).json({ error: "User not found" });
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword)
-      return res.status(401).json({ error: "Contraseña incorrecta" });
+      return res.status(401).json({ error: "Incorrect password" });
 
     const token = generateToken({
       id: user.id,
@@ -156,7 +121,7 @@ export async function loginUser(req: Request, res: Response) {
     });
 
     return res.status(200).json({
-      message: "Login exitoso",
+      message: "Login successful",
       token,
       user: {
         id: user.id,
@@ -169,6 +134,14 @@ export async function loginUser(req: Request, res: Response) {
   }
 }
 
+/**
+ * Retrieves a user by their ID.
+ * @async
+ * @function getUserId
+ * @param {Request} req - Express request object containing user ID as a parameter.
+ * @param {Response} res - Express response object.
+ * @returns {Promise<Response>} - Returns the user data if found.
+ */
 export async function getUserId(req: Request, res: Response) {
     try{
         const {id} = req.params;
@@ -176,19 +149,26 @@ export async function getUserId(req: Request, res: Response) {
         if(!user){
             return res.status(404).json({error: "Usuario no encontrado"});
         }
-    const { password, ...safe } = user as any;
-    return res.status(200).json(safe);
-    }
-    catch (err: any) {
+        const { password, ...safe } = user as any;
+        return res.status(200).json(safe);
+    } catch (err: any) {
         return res.status(500).json({ error: err.message });
-      }
+    }
 }
 
+/**
+ * Updates a user’s information by ID.
+ * @async
+ * @function updateUserId
+ * @param {Request} req - Express request object containing user ID as a parameter and updated data in the body.
+ * @param {Response} res - Express response object.
+ * @returns {Promise<Response>} - Returns the updated user data.
+ */
 export async function updateUserId(req: Request, res: Response) {
     try{
         const {id} = req.params;
         const body = req.body || {};
-        // Solo permitir actualizar estos campos
+        
         const allowed: Record<string, any> = {};
         if (typeof body.name === "string") allowed.name = body.name;
         if (typeof body.email === "string") allowed.email = body.email;
@@ -196,7 +176,7 @@ export async function updateUserId(req: Request, res: Response) {
           const ageNum = Number(body.age);
           if (!Number.isNaN(ageNum)) allowed.age = ageNum;
         }
-        // Validaciones de seguridad para contraseñas en actualización
+        
         if (body.password !== undefined) {
           const passwordStr =
             typeof body.password === "string"
@@ -211,12 +191,12 @@ export async function updateUserId(req: Request, res: Response) {
               return res.status(400).json({ error: "La contraseña debe tener al menos 8 caracteres" });
             }
 
-            // Prevenir contraseñas comunes y patrones de SQL injection
+            
             const forbiddenPatterns = [
               /(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b)/i, // SQL keywords
               /(\bUNION\b|\bOR\b.*=.*\b|\bAND\b.*=.*\b)/i, // SQL injection patterns
-              /['"`;\\]/g, // Caracteres peligrosos
-              /^\s+$/ // Solo espacios en blanco
+              /['"`;\\]/g,
+              /^\s+$/ 
             ];
 
             const hasForbiddenPattern = forbiddenPatterns.some(pattern => pattern.test(passwordStr));
@@ -226,14 +206,14 @@ export async function updateUserId(req: Request, res: Response) {
               });
             }
 
-            // Validar que tenga al menos una letra y un número para mayor seguridad
+            
             if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(passwordStr)) {
               return res.status(400).json({ 
                 error: "La contraseña debe contener al menos una letra y un número" 
               });
             }
 
-            allowed.password = passwordStr; // será hasheada en el servicio
+            allowed.password = passwordStr; 
           }
         }
 
@@ -246,28 +226,41 @@ export async function updateUserId(req: Request, res: Response) {
         }
         const { password, ...safe } = updatedUser as any;
         return res.status(200).json(safe);
-    }
-    catch (err: any) {
+    } catch (err: any) {
         return res.status(500).json({ error: err.message });
-      }
+    }
 }
+
+/**
+ * Deletes a user by their ID.
+ * @async
+ * @function deleteUserId
+ * @param {Request} req - Express request object containing user ID as a parameter.
+ * @param {Response} res - Express response object.
+ * @returns {Promise<Response>} - Returns a success message if deletion is successful.
+ */
 export async function deleteUserId(req: Request, res: Response) {
-    try{
-        const {id} = req.params;
-        const getUser = await getUserById(id);
-        if(!getUser){
-            return res.status(404).json({error: "Usuario no encontrado"});
-        }
-        const user = await deleteUser(id);
-        return res.status(200).json({message: "Usuario eliminado correctamente" });
-
-
+  try {
+    const { id } = req.params;
+    const getUser = await getUserById(id);
+    if (!getUser) {
+      return res.status(404).json({ error: "User not found" });
     }
-    catch (err: any) {
-        return res.status(500).json({ error: err.message });
-      }
-    }
+    await deleteUser(id);
+    return res.status(200).json({ message: "User deleted successfully" });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
 
+/**
+ * Retrieves all users from the system.
+ * @async
+ * @function getAllUsers
+ * @param {Request} req - Express request object.
+ * @param {Response} res - Express response object.
+ * @returns {Promise<Response>} - Returns a list of all registered users.
+ */
 export async function getAllUsers(req: Request, res: Response) {
   try {
     const users = await getUsers();
@@ -278,5 +271,5 @@ export async function getAllUsers(req: Request, res: Response) {
     return res.status(200).json(safe);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
-  } 
+  }
 }
