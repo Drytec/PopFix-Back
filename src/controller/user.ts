@@ -149,13 +149,11 @@ export async function getUserId(req: Request, res: Response) {
         if(!user){
             return res.status(404).json({error: "Usuario no encontrado"});
         }
-    const { password, ...safe } = user as any;
-    return res.status(200).json(safe);
+        const { password, ...safe } = user as any;
+        return res.status(200).json(safe);
+    } catch (err: any) {
+        return res.status(500).json({ error: err.message });
     }
-    return res.status(200).json(user);
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
-  }
 }
 
 /**
@@ -228,14 +226,9 @@ export async function updateUserId(req: Request, res: Response) {
         }
         const { password, ...safe } = updatedUser as any;
         return res.status(200).json(safe);
+    } catch (err: any) {
+        return res.status(500).json({ error: err.message });
     }
-    if (!updatedUser) {
-      return res.status(400).json({ error: "Update failed" });
-    }
-    return res.status(200).json(updatedUser);
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
-  }
 }
 
 /**
