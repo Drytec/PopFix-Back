@@ -148,17 +148,17 @@ export async function loginUser(req: Request, res: Response) {
  * @returns {Promise<Response>} - Returns the user data if found.
  */
 export async function getUserId(req: Request, res: Response) {
-    try{
-        const {id} = req.params;
-        const user = await getUserById(id);
-        if(!user){
-            return res.status(404).json({error: "Usuario no encontrado"});
-        }
-        const { password, ...safe } = user as any;
-        return res.status(200).json(safe);
-    } catch (err: any) {
-        return res.status(500).json({ error: err.message });
+  try {
+    const { id } = req.params;
+    const user = await getUserById(id);
+    if (!user) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
     }
+    const { password, ...safe } = user as any;
+    return res.status(200).json(safe);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
 }
 
 /**
@@ -219,14 +219,23 @@ export async function updateUserId(req: Request, res: Response) {
             error: "La contraseña debe contener al menos una letra y un número",
           });
         }
-        if (!updatedUser){
-            return res.status(400).json({error: "Actualizacion Fallida"});
-        }
-        const { password, ...safe } = updatedUser as any;
-        return res.status(200).json(safe);
-    } catch (err: any) {
-        return res.status(500).json({ error: err.message });
+
+        allowed.password = passwordStr;
+      }
     }
+
+    const updatedUser = await updateUser(id, allowed);
+    if (!id) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    if (!updatedUser) {
+      return res.status(400).json({ error: "Actualizacion Fallida" });
+    }
+    const { password, ...safe } = updatedUser as any;
+    return res.status(200).json(safe);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
 }
 
 /**
@@ -273,7 +282,6 @@ export async function getAllUsers(req: Request, res: Response) {
 }
 export async function logoutUser(req: Request, res: Response) {
   try {
-    // Since JWTs are stateless, logout can be handled on the client side by deleting the token.
 
     return res.status(200).json({ message: "Logout successful" });
   } catch (err: any) {
