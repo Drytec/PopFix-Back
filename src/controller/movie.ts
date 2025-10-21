@@ -9,6 +9,16 @@ import {
 import { getMovieById, addMovie, getMovies, searchMoviesDb } from "../services/movie";
 import { getPopularMoviesMapped, getMoviesByGenre } from "../services/pexels";
 
+// Formatea duración: "Xh Ym" si hay horas, "Xm" si hay minutos, "Zs" cuando minutos = 0
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
+}
+
 export async function getAllMovies(_req: Request, res: Response) {
   try {
     const movies = await getMovies();
@@ -112,7 +122,7 @@ export async function updateMoviebyUser(req: Request, res: Response) {
 export async function insertFavoriteRating(req: Request, res: Response) {
   try {
     const userId = req.params.userId;
-    const { movieId, favorite, rating, title, thumbnail_url, genre, source } =
+    const { movieId, favorite, rating, title, thumbnail_url, genre, source, duration_seconds, duration } =
       req.body;
     if (!userId || !movieId) {
       return res
@@ -163,9 +173,21 @@ export async function insertFavoriteRating(req: Request, res: Response) {
       favorite,
       rating,
     );
+
+    // Duración opcional: si cliente envía duration_seconds, devolvemos también los segundos y el formato solicitado
+    let durationFormatted: string | null = null;
+    let durationSecondsEcho: number | null = null;
+    if (typeof duration_seconds === "number" && Number.isFinite(duration_seconds)) {
+      durationSecondsEcho = Math.floor(duration_seconds);
+      durationFormatted = formatDuration(durationSecondsEcho);
+    } else if (typeof duration === "string") {
+      durationFormatted = duration; // permitir que el front mande ya formateado si lo prefiere
+    }
     return res.status(201).json({
       message: "Favorite and rating inserted successfully",
       data: result,
+      duration: durationSecondsEcho, // duración en segundos
+      duration_formatted: durationFormatted, // string amigable "Xh Ym" | "Xm" | "Zs"
     });
   } catch (err: any) {
     console.error("Error inserting favorite and rating:", err);
