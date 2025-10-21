@@ -69,7 +69,7 @@ export async function getMovieById(id: string) {
     .from("movies")
     .select("*")
     .eq("id", id)
-    .single();
+    .maybeSingle();
   if (error) throw new Error(error.message);
   return data;
 }
@@ -82,7 +82,7 @@ export async function getMovieById(id: string) {
  * that includes `user_id`, `watched_at`, and nested movie data.
  *
  * @async
- * @function getUserFavoriteMovies
+ * @function getUserMovies
  * @param {string} userId - The ID of the user whose movies are to be retrieved.
  * @returns {Promise<Object[]>} A promise that resolves to an array of movie records associated with the user.
  * @throws {Error} If a Supabase error occurs while fetching data.
@@ -91,22 +91,22 @@ export async function getMovieById(id: string) {
  * const userMovies = await getUserMovies("user_456");
  * console.log(userMovies[0].movies.title); // "Avatar"
  */
-
-export async function getUserFavoriteMovies(userId: string) {
+export async function getUserMovies(userId: string) {
   const { data, error } = await supabase
-    .from("user_movies")
-    .select(`
-      movie_id,
-      movies (
-        id,
-        title,
-        thumbnail_url,
-        genre,
-        source
-      )
-    `)
-    .eq("user_id", userId)
-    .eq("is_favorite", true);
+    .from("movies")
+    .select(
+      `
+        watched_at,
+        movies (
+          id,
+          title,
+          thumbnail_url,
+          genre,
+          source
+        )
+      `,
+    )
+    .eq("user_id", userId);
 
   if (error) throw new Error(error.message);
   return data;

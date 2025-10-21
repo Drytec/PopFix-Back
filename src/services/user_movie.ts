@@ -38,7 +38,8 @@ export async function updateUserMovie(
 export async function getUserFavoriteMovies(userId: string) {
   const { data, error } = await supabase
     .from("user_movies")
-    .select(`
+    .select(
+      `
       movie_id,
       movies (
         id,
@@ -47,7 +48,8 @@ export async function getUserFavoriteMovies(userId: string) {
         genre,
         source
       )
-    `)
+    `,
+    )
     .eq("user_id", userId)
     .eq("is_favorite", true);
 
@@ -55,32 +57,31 @@ export async function getUserFavoriteMovies(userId: string) {
   return data;
 }
 
-export async function (userId: string, movieId: string,favorite:boolean|null,rating:number|null) {
-  if ( rating !== null && (rating >= 1 && rating <= 5) ) {
-  const { data, error } = await supabase
-    .from("user_movies")
-    .insert({
-      user_id: userId,
-      movie_id: movieId,
-      is_favorite: favorite,
-      rating: rating,
-    })
-    .select();
-  if (error) throw new Error(error.message);
-  return data;
-  } else {
-     const { data, error } = await supabase
-    .from("user_movies")
-    .insert({
-      user_id: userId,
-      movie_id: movieId,
-      is_favorite: favorite,
-      rating: rating,
-    })
-    .select();
-  if (error) throw new Error(error.message);
-    return data;
+export async function insertFavoriteRatingUserMovie(
+  userId: string,
+  movieId: string,
+  favorite: boolean | null,
+  rating: number | null,
+) {
+  if (rating !== null && (rating < 1 || rating > 5)) {
+    throw new Error("Rating must be between 1 and 5");
   }
 
+  const { data, error } = await supabase
+    .from("user_movies")
+    .upsert(
+      [
+        {
+          user_id: userId,
+          movie_id: movieId,
+          is_favorite: favorite,
+          rating: rating,
+        },
+      ],
+      { onConflict: "user_id, movie_id" }, // 👈 importante
+    )
+    .select();
 
-} 
+  if (error) throw new Error(error.message);
+  return data;
+}
