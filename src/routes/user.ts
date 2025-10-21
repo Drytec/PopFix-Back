@@ -8,6 +8,7 @@ import {
     deleteUserId,
     getAllUsers,
     logoutUser,
+    changePasswordUser
 } from '../controller/user';
 
 
@@ -20,5 +21,6 @@ router.get("/:id", getUserId);
 router.post("/logout",logoutUser);
 router.put("/:id", updateUserId);
 router.delete("/:id", deleteUserId);
+router.put("/change-password", changePasswordUser);
 
 export default router;

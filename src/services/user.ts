@@ -125,3 +125,22 @@ export async function deleteUser(id: string) {
   const { error } = await supabase.from("users").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
+
+export async function changePassword(id: string,oldPassword:string,newPassword: string){
+  try{const user = await getUserById(id);
+  const isMatch = await bcrypt.compare(oldPassword, (user as any).password);
+  if (!isMatch) {
+    throw new Error("Old password is incorrect");
+  }
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  const { data, error } = await supabase
+    .from("users")
+    .update({ password: hashedPassword })
+    .eq("id", id)
+    .select();
+  if (error) throw new Error(error.message);
+  return data[0];}
+  catch(err){
+    throw new Error((err as Error).message);
+  }
+}
