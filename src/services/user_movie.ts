@@ -1,3 +1,4 @@
+import { get } from "http";
 import { supabase } from "../config/database";
 
 export async function updateUserMovie(
@@ -36,16 +37,50 @@ export async function updateUserMovie(
 
 export async function getUserFavoriteMovies(userId: string) {
   const { data, error } = await supabase
-    .from("movies")
-    .select(
-      `
-        movie_id,
-        movies ( id, title, thumbnail_url, genre, source )
-      `,
-    )
+    .from("user_movies")
+    .select(`
+      movie_id,
+      movies (
+        id,
+        title,
+        thumbnail_url,
+        genre,
+        source
+      )
+    `)
     .eq("user_id", userId)
     .eq("is_favorite", true);
 
   if (error) throw new Error(error.message);
   return data;
 }
+
+export async function (userId: string, movieId: string,favorite:boolean|null,rating:number|null) {
+  if ( rating !== null && (rating >= 1 && rating <= 5) ) {
+  const { data, error } = await supabase
+    .from("user_movies")
+    .insert({
+      user_id: userId,
+      movie_id: movieId,
+      is_favorite: favorite,
+      rating: rating,
+    })
+    .select();
+  if (error) throw new Error(error.message);
+  return data;
+  } else {
+     const { data, error } = await supabase
+    .from("user_movies")
+    .insert({
+      user_id: userId,
+      movie_id: movieId,
+      is_favorite: favorite,
+      rating: rating,
+    })
+    .select();
+  if (error) throw new Error(error.message);
+    return data;
+  }
+
+
+} 
