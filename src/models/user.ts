@@ -1,4 +1,3 @@
-import { movieModel } from "./movie";
 
 /**
  * Represents a user within the application.
@@ -62,5 +61,4 @@ export interface calificationsModel {
   userId: number;
   movieId: number;
   calification: number;
-  movie?: movieModel;
 }

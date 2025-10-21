@@ -41,12 +41,38 @@ export async function addMovie(
   thumbnail_url: string,
   genre: string,
   source: string,
+  extras?: { director?: string | null; suggested_rating?: number | null },
 ) {
+  const baseRecord: any = { id, title, thumbnail_url, genre, source };
+  if (extras && typeof extras.director !== "undefined") baseRecord.director = extras.director;
+  if (extras && typeof extras.suggested_rating !== "undefined") baseRecord.suggested_rating = extras.suggested_rating;
+
+  // Try insert with extras; if columns don't exist, fallback to base fields
+  let { data, error } = await supabase.from("movies").insert([baseRecord]).select();
+  if (error && /column .* does not exist/i.test(error.message)) {
+    const fallback = { id, title, thumbnail_url, genre, source };
+    const res = await supabase.from("movies").insert([fallback]).select();
+    if (res.error) throw new Error(res.error.message);
+    return res.data;
+  }
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/**
+ * Upserts multiple movies into the movies table.
+ * Only standard columns are used to avoid schema mismatch.
+ */
+// Removed upsertMoviesBulk (sync feature deprecated)
+
+/** Simple title/genre search in movies */
+export async function searchMoviesDb(query: string, limit = 50) {
+  const q = `%${query}%`;
   const { data, error } = await supabase
     .from("movies")
-    .insert([{ id, title, thumbnail_url, genre, source }])
-    .select();
-
+    .select("*")
+    .or(`title.ilike.${q},genre.ilike.${q}`)
+    .limit(limit);
   if (error) throw new Error(error.message);
   return data;
 }
@@ -91,23 +117,4 @@ export async function getMovieById(id: string) {
  * const userMovies = await getUserMovies("user_456");
  * console.log(userMovies[0].movies.title); // "Avatar"
  */
-export async function getUserMovies(userId: string) {
-  const { data, error } = await supabase
-    .from("movies")
-    .select(
-      `
-        watched_at,
-        movies (
-          id,
-          title,
-          thumbnail_url,
-          genre,
-          source
-        )
-      `,
-    )
-    .eq("user_id", userId);
-
-  if (error) throw new Error(error.message);
-  return data;
-}
+// Removed getUserMovies (unused)

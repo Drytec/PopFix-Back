@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { searchMovies, getPopularMovies } from "../services/pexels";
+import { searchMovies, getPopularMoviesMapped } from "../services/pexels";
 
 /**
  * Retrieves a list of popular videos from the Pexels API.
@@ -16,8 +16,44 @@ import { searchMovies, getPopularMovies } from "../services/pexels";
  */
 export async function getPopular(req: Request, res: Response) {
   try {
-    const videos = await getPopularMovies(10);
-    return res.status(200).json(videos);
+    const perPage = req.query.perPage ? Number(req.query.perPage) : 10;
+    const qualityParam = (req.query.quality as string) || undefined; // 'sd' | 'hd' | 'low'
+    const maxWidthParam = req.query.maxWidth ? Number(req.query.maxWidth) : undefined;
+
+    const opts: any = {};
+    if (qualityParam && ["sd", "hd", "low"].includes(qualityParam)) {
+      opts.quality = qualityParam;
+    }
+    if (typeof maxWidthParam === "number" && !Number.isNaN(maxWidthParam)) {
+      opts.maxWidth = maxWidthParam;
+    }
+
+    const movies = await getPopularMoviesMapped(perPage, opts);
+    return res.status(200).json(movies);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+/**
+ * Returns Pexels popular videos mapped to Home's expected movie shape.
+ */
+export async function getPopularMapped(req: Request, res: Response) {
+  try {
+    const perPage = req.query.perPage ? Number(req.query.perPage) : 10;
+    const qualityParam = (req.query.quality as string) || undefined; // 'sd' | 'hd' | 'low'
+    const maxWidthParam = req.query.maxWidth ? Number(req.query.maxWidth) : undefined;
+
+    const opts: any = {};
+    if (qualityParam && ["sd", "hd", "low"].includes(qualityParam)) {
+      opts.quality = qualityParam;
+    }
+    if (typeof maxWidthParam === "number" && !Number.isNaN(maxWidthParam)) {
+      opts.maxWidth = maxWidthParam;
+    }
+
+    const movies = await getPopularMoviesMapped(perPage, opts);
+    return res.status(200).json(movies);
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }

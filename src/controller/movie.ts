@@ -6,7 +6,72 @@ import {
   insertFavoriteRatingUserMovie,
 } from "../services/user_movie";
 
-import { getMovieById, addMovie } from "../services/movie";
+import { getMovieById, addMovie, getMovies, searchMoviesDb } from "../services/movie";
+import { getPopularMoviesMapped, getMoviesByGenre } from "../services/pexels";
+
+// Formatea duración: "Xh Ym" si hay horas, "Xm" si hay minutos, "Zs" cuando minutos = 0
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
+}
+
+export async function getAllMovies(_req: Request, res: Response) {
+  try {
+    const movies = await getMovies();
+    return res.status(200).json(movies);
+  } catch (err: any) {
+    console.error("Error fetching movies:", err.message);
+    return res.status(500).json({ error: "Failed to fetch movies" });
+  }
+}
+
+export async function getMixed(req: Request, res: Response) {
+  try {
+    const { limit, quality, maxWidth } = req.query;
+    const perPage = typeof limit === "string" ? Number(limit) : 25;
+    const opts: any = {};
+    if (typeof quality === "string") opts.quality = quality as any;
+    if (typeof maxWidth === "string") opts.maxWidth = Number(maxWidth);
+    const movies = await getPopularMoviesMapped(perPage, opts);
+    return res.status(200).json(movies);
+  } catch (err: any) {
+    console.error("Error fetching mixed movies:", err.message);
+    return res.status(500).json({ error: "Failed to fetch mixed movies" });
+  }
+}
+
+export async function getByGenrePexels(req: Request, res: Response) {
+  try {
+    const { genre, perPage } = req.query;
+    if (!genre || typeof genre !== "string") {
+      return res.status(400).json({ error: "genre is required" });
+    }
+    const n = typeof perPage === "string" ? Number(perPage) : 12;
+    const items = await getMoviesByGenre(genre, n);
+    return res.status(200).json(items);
+  } catch (err: any) {
+    console.error("Error fetching Pexels by genre:", err.message);
+    return res.status(500).json({ error: "Failed to fetch Pexels by genre" });
+  }
+}
+
+
+export async function searchMoviesController(req: Request, res: Response) {
+  try {
+    const { q, limit } = req.query;
+    if (!q || typeof q !== "string") return res.status(400).json({ error: "q is required" });
+    const n = typeof limit === "string" ? Number(limit) : 50;
+    const items = await searchMoviesDb(q, n);
+    return res.status(200).json(items);
+  } catch (err: any) {
+    console.error("Error searching movies:", err.message);
+    return res.status(500).json({ error: "Failed to search movies" });
+  }
+}
 
 export async function getFavoriteMovies(req: Request, res: Response) {
   try {
@@ -57,7 +122,7 @@ export async function updateMoviebyUser(req: Request, res: Response) {
 export async function insertFavoriteRating(req: Request, res: Response) {
   try {
     const userId = req.params.userId;
-    const { movieId, favorite, rating, title, thumbnail_url, genre, source } =
+    const { movieId, favorite, rating, title, thumbnail_url, genre, source, duration_seconds, duration } =
       req.body;
     if (!userId || !movieId) {
       return res
@@ -96,7 +161,10 @@ export async function insertFavoriteRating(req: Request, res: Response) {
         genre,
         source,
       );
-      movie = createdMovie[0];
+      if (!createdMovie || (Array.isArray(createdMovie) && createdMovie.length === 0)) {
+        return res.status(500).json({ error: "Failed to create movie" });
+      }
+      movie = Array.isArray(createdMovie) ? createdMovie[0] : createdMovie;
     }
 
     const result = await insertFavoriteRatingUserMovie(
@@ -105,9 +173,21 @@ export async function insertFavoriteRating(req: Request, res: Response) {
       favorite,
       rating,
     );
+
+    // Duración opcional: si cliente envía duration_seconds, devolvemos también los segundos y el formato solicitado
+    let durationFormatted: string | null = null;
+    let durationSecondsEcho: number | null = null;
+    if (typeof duration_seconds === "number" && Number.isFinite(duration_seconds)) {
+      durationSecondsEcho = Math.floor(duration_seconds);
+      durationFormatted = formatDuration(durationSecondsEcho);
+    } else if (typeof duration === "string") {
+      durationFormatted = duration; // permitir que el front mande ya formateado si lo prefiere
+    }
     return res.status(201).json({
       message: "Favorite and rating inserted successfully",
       data: result,
+      duration: durationSecondsEcho, // duración en segundos
+      duration_formatted: durationFormatted, // string amigable "Xh Ym" | "Xm" | "Zs"
     });
   } catch (err: any) {
     console.error("Error inserting favorite and rating:", err);
