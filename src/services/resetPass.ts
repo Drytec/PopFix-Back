@@ -5,10 +5,10 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 /**
  * Envía un correo de restablecimiento de contraseña usando Resend.
  *
- * @param {string} userEmail - Dirección del destinatario.
+ * @param {string} to - Dirección del destinatario.
  * @param {string} token - Token único de restablecimiento.
  */
-export async function sendResetPasswordEmail(userEmail: string, token: string) {
+export async function sendResetPasswordEmail(to: string, token: string) {
   const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
   const htmlContent = `
@@ -59,8 +59,8 @@ export async function sendResetPasswordEmail(userEmail: string, token: string) {
   `;
 
   await resend.emails.send({
-    from: "Soporte PopFix <onboarding@resend.dev>", // Puedes cambiarlo al verificar tu dominio
-    to: userEmail,
+    from: "Soporte PopFix <onboarding@resend.dev>", 
+    to,
     subject: "Restablecer Contraseña - Soporte PopFix",
     html: htmlContent,
   });
