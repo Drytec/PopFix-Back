@@ -6,7 +6,62 @@ import {
   insertFavoriteRatingUserMovie,
 } from "../services/user_movie";
 
-import { getMovieById, addMovie } from "../services/movie";
+import { getMovieById, addMovie, getMovies, searchMoviesDb } from "../services/movie";
+import { getPopularMoviesMapped, getMoviesByGenre } from "../services/pexels";
+
+export async function getAllMovies(_req: Request, res: Response) {
+  try {
+    const movies = await getMovies();
+    return res.status(200).json(movies);
+  } catch (err: any) {
+    console.error("Error fetching movies:", err.message);
+    return res.status(500).json({ error: "Failed to fetch movies" });
+  }
+}
+
+export async function getMixed(req: Request, res: Response) {
+  try {
+    const { limit, quality, maxWidth } = req.query;
+    const perPage = typeof limit === "string" ? Number(limit) : 25;
+    const opts: any = {};
+    if (typeof quality === "string") opts.quality = quality as any;
+    if (typeof maxWidth === "string") opts.maxWidth = Number(maxWidth);
+    const movies = await getPopularMoviesMapped(perPage, opts);
+    return res.status(200).json(movies);
+  } catch (err: any) {
+    console.error("Error fetching mixed movies:", err.message);
+    return res.status(500).json({ error: "Failed to fetch mixed movies" });
+  }
+}
+
+export async function getByGenrePexels(req: Request, res: Response) {
+  try {
+    const { genre, perPage } = req.query;
+    if (!genre || typeof genre !== "string") {
+      return res.status(400).json({ error: "genre is required" });
+    }
+    const n = typeof perPage === "string" ? Number(perPage) : 12;
+    const items = await getMoviesByGenre(genre, n);
+    return res.status(200).json(items);
+  } catch (err: any) {
+    console.error("Error fetching Pexels by genre:", err.message);
+    return res.status(500).json({ error: "Failed to fetch Pexels by genre" });
+  }
+}
+
+
+export async function searchMoviesController(req: Request, res: Response) {
+  try {
+    const { q, limit } = req.query;
+    if (!q || typeof q !== "string") return res.status(400).json({ error: "q is required" });
+    const n = typeof limit === "string" ? Number(limit) : 50;
+    const items = await searchMoviesDb(q, n);
+    return res.status(200).json(items);
+  } catch (err: any) {
+    console.error("Error searching movies:", err.message);
+    return res.status(500).json({ error: "Failed to search movies" });
+  }
+}
 
 export async function getFavoriteMovies(req: Request, res: Response) {
   try {
@@ -96,7 +151,10 @@ export async function insertFavoriteRating(req: Request, res: Response) {
         genre,
         source,
       );
-      movie = createdMovie[0];
+      if (!createdMovie || (Array.isArray(createdMovie) && createdMovie.length === 0)) {
+        return res.status(500).json({ error: "Failed to create movie" });
+      }
+      movie = Array.isArray(createdMovie) ? createdMovie[0] : createdMovie;
     }
 
     const result = await insertFavoriteRatingUserMovie(
