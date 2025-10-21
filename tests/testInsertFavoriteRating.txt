@@ -1,0 +1,10 @@
+url = "http://localhost:5100/api/movies/insertFavoriteRating/<userId>"
+JSON = {
+  "movieId": "tt4154796",
+  "favorite": true,
+  "rating": 5,
+  "title": "Avengers: Endgame",
+  "thumbnail_url": "https://www.pexels.com/@cup-of-couple",
+  "genre": "Action, Adventure, Sci-Fi",
+  "source": "The Movie Database (TMDB)"
+}
