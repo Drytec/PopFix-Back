@@ -21,7 +21,7 @@ export async function getFavoriteMovies(req: Request, res: Response) {
 export async function updateMoviebyUser(req: Request, res: Response) {
   try {
     const { userId } = req.params;
-    const { movieId } = req.params;
+    const { movieId } = req.body;
 
     const updates = req.body;
 
