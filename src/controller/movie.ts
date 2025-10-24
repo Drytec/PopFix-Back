@@ -9,6 +9,7 @@ import {
   getUserMovieComments,
   getCommentById,
   deleteUserMovieComment,
+  getUserMovieMovies,
 } from "../services/user_movie";
 
 import {
@@ -226,10 +227,22 @@ export async function insertFavoriteRating(req: Request, res: Response) {
 export async function addUserMovieComment(req: Request, res: Response) {
   try {
     const userId = req.params.userId;
-    const { movieId, favorite, rating, text } = req.body;
+    const { movieId, text } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: "Missing userId parameter." });
+    }
+
+    let is_favorite: boolean;
+    let rating_num: any;
+
+    if (!getUserMovieMovies(userId, movieId)) {
+      is_favorite = false;
+      rating_num = null;
+    } else {
+      const { favorite, rating } = await getUserMovieMovies(userId, movieId);
+      is_favorite = favorite;
+      rating_num = rating;
     }
 
     const user_data: any = await getUserById(userId);
@@ -245,8 +258,8 @@ export async function addUserMovieComment(req: Request, res: Response) {
     const comment = await insertUserMovieComment(
       userId,
       movieId,
-      favorite,
-      rating,
+      is_favorite,
+      rating_num,
       text,
       avatar,
     );
