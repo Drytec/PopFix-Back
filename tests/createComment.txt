@@ -1,0 +1,23 @@
+URL:
+http://localhost:5100/api/movies/addUserMovieComment/81098955-793d-42e2-9650-212b3d8b1dca
+
+Request JSON:
+{
+  "movieId": "px-6963395",
+  "favorite": false,
+  "rating": null,
+  "text": "I really liked this movie."
+}
+
+Return JSON:
+{
+  "message": "Comment created and inserted correctly",
+  "comment": {
+    "id": "5a281039-6a9e-4fca-b9bc-3059b46ebc2b",
+    "user_movie_user_id": "81098955-793d-42e2-9650-212b3d8b1dca",
+    "user_movie_movie_id": "px-6963395",
+    "content": "I really liked this movie.",
+    "created_at": "2025-10-24T00:06:27.31534+00:00",
+    "avatar": "NC"
+  }
+}

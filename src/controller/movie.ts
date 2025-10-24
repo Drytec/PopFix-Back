@@ -4,10 +4,21 @@ import {
   getUserFavoriteMovies,
   updateUserMovie,
   insertFavoriteRatingUserMovie,
+  insertUserMovieComment,
+  updateUserMovieComment,
+  getUserMovieComments,
+  getCommentById,
+  deleteUserMovieComment,
 } from "../services/user_movie";
 
-import { getMovieById, addMovie, getMovies, searchMoviesDb } from "../services/movie";
+import {
+  getMovieById,
+  addMovie,
+  getMovies,
+  searchMoviesDb,
+} from "../services/movie";
 import { getPopularMoviesMapped, getMoviesByGenre } from "../services/pexels";
+import { getUserById } from "../services/user";
 
 // Formatea duración: "Xh Ym" si hay horas, "Xm" si hay minutos, "Zs" cuando minutos = 0
 function formatDuration(seconds: number): string {
@@ -59,11 +70,11 @@ export async function getByGenrePexels(req: Request, res: Response) {
   }
 }
 
-
 export async function searchMoviesController(req: Request, res: Response) {
   try {
     const { q, limit } = req.query;
-    if (!q || typeof q !== "string") return res.status(400).json({ error: "q is required" });
+    if (!q || typeof q !== "string")
+      return res.status(400).json({ error: "q is required" });
     const n = typeof limit === "string" ? Number(limit) : 50;
     const items = await searchMoviesDb(q, n);
     return res.status(200).json(items);
@@ -122,8 +133,17 @@ export async function updateMoviebyUser(req: Request, res: Response) {
 export async function insertFavoriteRating(req: Request, res: Response) {
   try {
     const userId = req.params.userId;
-    const { movieId, favorite, rating, title, thumbnail_url, genre, source, duration_seconds, duration } =
-      req.body;
+    const {
+      movieId,
+      favorite,
+      rating,
+      title,
+      thumbnail_url,
+      genre,
+      source,
+      duration_seconds,
+      duration,
+    } = req.body;
     if (!userId || !movieId) {
       return res
         .status(400)
@@ -161,7 +181,10 @@ export async function insertFavoriteRating(req: Request, res: Response) {
         genre,
         source,
       );
-      if (!createdMovie || (Array.isArray(createdMovie) && createdMovie.length === 0)) {
+      if (
+        !createdMovie ||
+        (Array.isArray(createdMovie) && createdMovie.length === 0)
+      ) {
         return res.status(500).json({ error: "Failed to create movie" });
       }
       movie = Array.isArray(createdMovie) ? createdMovie[0] : createdMovie;
@@ -177,7 +200,10 @@ export async function insertFavoriteRating(req: Request, res: Response) {
     // Duración opcional: si cliente envía duration_seconds, devolvemos también los segundos y el formato solicitado
     let durationFormatted: string | null = null;
     let durationSecondsEcho: number | null = null;
-    if (typeof duration_seconds === "number" && Number.isFinite(duration_seconds)) {
+    if (
+      typeof duration_seconds === "number" &&
+      Number.isFinite(duration_seconds)
+    ) {
       durationSecondsEcho = Math.floor(duration_seconds);
       durationFormatted = formatDuration(durationSecondsEcho);
     } else if (typeof duration === "string") {
@@ -194,5 +220,102 @@ export async function insertFavoriteRating(req: Request, res: Response) {
     return res
       .status(500)
       .json({ error: err.message || "Internal server error" });
+  }
+}
+
+export async function addUserMovieComment(req: Request, res: Response) {
+  try {
+    const userId = req.params.userId;
+    const { movieId, favorite, rating, text } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: "Missing userId parameter." });
+    }
+
+    const user_data: any = await getUserById(userId);
+    const user_name: string = user_data.name;
+    const user_surname: string = user_data.surname;
+
+    let avatar: string;
+
+    const name_array: string[] = [user_name, user_surname];
+
+    avatar = (name_array[0][0] + name_array[1][0]).toUpperCase();
+
+    const comment = await insertUserMovieComment(
+      userId,
+      movieId,
+      favorite,
+      rating,
+      text,
+      avatar,
+    );
+    return res.status(200).json({
+      message: "Comment created and inserted correctly",
+      comment,
+    });
+  } catch (err: any) {
+    console.error("Error adding comment to movie:", err.message);
+    return res.status(500).json({ error: "Failed to add comment" });
+  }
+}
+
+export async function editUserMovieComment(req: Request, res: Response) {
+  try {
+    const commentId = req.params.commentId;
+    const updates = req.body;
+
+    const updatedComment = await updateUserMovieComment(commentId, updates);
+
+    return res.status(200).json({
+      message: "Comment updated correctly",
+      updatedComment,
+    });
+  } catch (err: any) {
+    console.error("Error updating comment:", err.message);
+    return res.status(500).json({ error: "Failed to update comment" });
+  }
+}
+
+export async function getCommentsByUserMovie(req: Request, res: Response) {
+  try {
+    const user_id = req.body.userId;
+    const movie_id = req.body.movieId;
+
+    const comments = await getUserMovieComments(user_id, movie_id);
+
+    return res.status(200).json({
+      message: "Comments accessed correctly",
+      comments,
+    });
+  } catch (err: any) {
+    console.error("Error getting comments: ", err.message);
+    return res.status(500).json({ error: "Failed to get comments" });
+  }
+}
+
+export async function getSingleComment(req: Request, res: Response) {
+  try {
+    const commentId = req.params.commentId;
+
+    const comment = await getCommentById(commentId);
+
+    return res.status(200).json({
+      message: "Comment accesed correctly",
+      comment,
+    });
+  } catch (err: any) {
+    console.error("Error getting comment: ", err.message);
+    return res.status(500).json({ error: "Failed to get comment" });
+  }
+}
+
+export async function deleleComment(req: Request, res: Response) {
+  try {
+    const commentId = req.params.commentId;
+    await deleteUserMovieComment(commentId);
+    return res.status(200).json({ message: "Comment deleted successfully" });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 }
