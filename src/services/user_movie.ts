@@ -179,3 +179,15 @@ export async function getCommentById(commentId: string) {
   if (error) throw new Error(error.message);
   return data;
 }
+
+export async function getUserMovieMovies(user_id: string, movie_id: string) {
+  const { data, error } = await supabase
+    .from("user_movies")
+    .select()
+    .eq("user_id", user_id)
+    .eq("movie_id", movie_id)
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
