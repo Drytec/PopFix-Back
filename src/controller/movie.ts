@@ -181,6 +181,7 @@ export async function insertFavoriteRating(req: Request, res: Response) {
         thumbnail_url,
         genre,
         source,
+        rating,
       );
       if (
         !createdMovie ||
