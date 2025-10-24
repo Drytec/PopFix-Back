@@ -6,7 +6,7 @@ import {
   updateUser,
   deleteUser,
   getUserByEmail,
-  changePassword
+  changePassword,
 } from "../services/user";
 import bcrypt from "bcryptjs";
 import { verifyToken, generateToken } from "../services/auth";
@@ -283,7 +283,6 @@ export async function getAllUsers(req: Request, res: Response) {
 }
 export async function logoutUser(req: Request, res: Response) {
   try {
-
     return res.status(200).json({ message: "Logout successful" });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
@@ -292,21 +291,22 @@ export async function logoutUser(req: Request, res: Response) {
 export async function changePasswordUser(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { oldPassword,newPassword } = req.body;
+    const { oldPassword, newPassword } = req.body;
     const user = await getUserById(id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
     if (!oldPassword || !newPassword) {
-      return res.status(400).json({ error: "Old and new passwords are required" });
-    } 
-    const newPwd = await changePassword(id,oldPassword,newPassword);
-    if (!newPwd) { 
+      return res
+        .status(400)
+        .json({ error: "Old and new passwords are required" });
+    }
+    const newPwd = await changePassword(id, oldPassword, newPassword);
+    if (!newPwd) {
       return res.status(400).json({ error: "Password change failed" });
     }
     return res.status(200).json({ message: "Password changed successfully" });
-
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
-  } 
+  }
 }

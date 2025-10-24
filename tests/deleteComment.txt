@@ -1,0 +1,9 @@
+URL:
+http://localhost:5100/api/movies/deleteComment/5a281039-6a9e-4fca-b9bc-3059b46ebc2b
+
+Request JSON:
+
+Return JSON:
+{
+  "message": "Comment deleted successfully"
+}
