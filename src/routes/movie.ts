@@ -12,7 +12,9 @@ import {
   getCommentsByUserMovie,
   getSingleComment,
   deleleComment,
+  getMovieByIdController
 } from "../controller/movie";
+import { getMovieById } from "../services/movie";
 
 const router = Router();
 router.get("/", getAllMovies);
@@ -27,5 +29,6 @@ router.put("/editComment/:commentId", editUserMovieComment);
 router.delete("/deleteComment/:commentId", deleleComment);
 router.get("/getUserMovieComments/", getCommentsByUserMovie);
 router.get("/getComment/:commentId", getSingleComment);
+router.get("/getMovie",getMovieByIdController);
 
 export default router;

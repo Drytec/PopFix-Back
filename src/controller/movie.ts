@@ -10,6 +10,8 @@ import {
   getCommentById,
   deleteUserMovieComment,
   getUserMovieMovies,
+  getRatingMovies,
+
 } from "../services/user_movie";
 
 import {
@@ -17,6 +19,7 @@ import {
   addMovie,
   getMovies,
   searchMoviesDb,
+  updateMovieById,
 } from "../services/movie";
 import { getPopularMoviesMapped, getMoviesByGenre } from "../services/pexels";
 import { getUserById } from "../services/user";
@@ -137,14 +140,15 @@ export async function insertFavoriteRating(req: Request, res: Response) {
     const {
       movieId,
       favorite,
-      rating,
       title,
       thumbnail_url,
       genre,
       source,
       duration_seconds,
       duration,
+      rating,
     } = req.body;
+  
     if (!userId || !movieId) {
       return res
         .status(400)
@@ -166,7 +170,7 @@ export async function insertFavoriteRating(req: Request, res: Response) {
       }
     }
 
-    // 2️⃣ Si no existe, crearla
+
     if (!movie) {
       if (!title || !thumbnail_url || !genre || !source) {
         return res.status(400).json({
@@ -198,6 +202,8 @@ export async function insertFavoriteRating(req: Request, res: Response) {
       favorite,
       rating,
     );
+    const sugestedRatings = await getRatingMovies(movieId);
+    const newMovie= await updateMovieById(movieId,{rating:sugestedRatings})
 
     // Duración opcional: si cliente envía duration_seconds, devolvemos también los segundos y el formato solicitado
     let durationFormatted: string | null = null;
@@ -332,4 +338,16 @@ export async function deleleComment(req: Request, res: Response) {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
+}
+
+export async function getMovieByIdController(req:Request, res:Response) {
+  try{
+    const {movie_id}= req.body;
+    console.log(movie_id)
+    const movie=await getMovieById(movie_id);
+    return res.status(200).json(movie);
+
+  }catch(err:any){
+     return res.status(500).json({ error: err.message });
+  } 
 }

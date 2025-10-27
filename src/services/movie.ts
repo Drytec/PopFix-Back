@@ -41,12 +41,12 @@ export async function addMovie(
   thumbnail_url: string,
   genre: string,
   source: string,
-  extras?: { director?: string | null; suggested_rating?: number | null },
+  rating?: number,
+  extras?: { director?: string | null},
 ) {
-  const baseRecord: any = { id, title, thumbnail_url, genre, source };
+  const baseRecord: any = { id, title, thumbnail_url, genre, source ,rating};
   if (extras && typeof extras.director !== "undefined") baseRecord.director = extras.director;
-  if (extras && typeof extras.suggested_rating !== "undefined") baseRecord.suggested_rating = extras.suggested_rating;
-
+ 
   // Try insert with extras; if columns don't exist, fallback to base fields
   let { data, error } = await supabase.from("movies").insert([baseRecord]).select();
   if (error && /column .* does not exist/i.test(error.message)) {
@@ -100,6 +100,7 @@ export async function getMovieById(id: string) {
   return data;
 }
 
+
 /**
  * Retrieves all movies associated with a specific user.
  *
@@ -118,3 +119,12 @@ export async function getMovieById(id: string) {
  * console.log(userMovies[0].movies.title); // "Avatar"
  */
 // Removed getUserMovies (unused)
+export async function updateMovieById(movieId: string, updates: Record<string, any>) {
+  const { data, error } = await supabase
+    .from("movies")
+    .update(updates)
+    .eq("id", movieId)
+    .select();  
+  if (error) throw new Error(error.message);
+  return data[0];
+}

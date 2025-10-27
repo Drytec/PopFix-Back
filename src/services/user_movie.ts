@@ -191,3 +191,16 @@ export async function getUserMovieMovies(user_id: string, movie_id: string) {
   if (error) throw new Error(error.message);
   return data;
 }
+export async function getRatingMovies(movie_id: string): Promise<number> {
+
+  const { data, error } = await supabase
+    .from('user_movies')
+    .select('rating')
+    .eq('movie_id', movie_id);
+  if (error) throw new Error(error.message);
+  const ratings = data.map(item => item.rating).filter(r => r !== null) as number[];
+  if (ratings.length === 0) return 0;
+  const avgRating = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+  return parseFloat(avgRating.toFixed(2));
+
+}
