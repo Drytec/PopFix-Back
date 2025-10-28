@@ -94,6 +94,12 @@ export async function getUserFavoriteMovies(userId: string) {
   if (error) throw new Error(error.message);
   return data;
 }
+export async function getRatingMovies(movieId: string) {
+  const { data, error } = await supabase
+    .from("user_movies")
+    .select(`rating`)
+    .eq("movie_id", movieId);
+}
 
 export async function insertFavoriteRatingUserMovie(
   userId: string,
