@@ -2,6 +2,31 @@ import { get } from "http";
 import { supabase } from "../config/database";
 import { getUserById } from "./user";
 
+// Helpers: coerce incoming values (strings from client) into proper types
+function parseNullableBoolean(v: any): boolean | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return !!v;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    if (s === "true") return true;
+    if (s === "false") return false;
+    if (s === "null" || s === "") return null;
+  }
+  return null;
+}
+
+function parseNullableNumber(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (!Number.isNaN(n) && Number.isFinite(n)) return n;
+    return null;
+  }
+  return null;
+}
+
 export async function updateUserMovie(
   userId: string,
   movieId: string,
@@ -9,20 +34,28 @@ export async function updateUserMovie(
 ) {
   const toUpdate: Record<string, any> = {};
 
-  if (updates.is_favorite === null) {
-    toUpdate.is_favorite = null;
-  } else if (typeof updates.is_favorite === "boolean") {
-    toUpdate.is_favorite = updates.is_favorite;
+  // Coerce incoming is_favorite values (allow 'true'/'false' strings)
+  if ("is_favorite" in updates) {
+    const fav = parseNullableBoolean(updates.is_favorite);
+    // If client explicitly sent null -> set null
+    if (
+      fav === null &&
+      (updates.is_favorite === null || updates.is_favorite === "null")
+    ) {
+      toUpdate.is_favorite = null;
+    } else if (typeof fav === "boolean") {
+      toUpdate.is_favorite = fav;
+    }
   }
 
-  if (updates.rating === null) {
-    toUpdate.rating = null;
-  } else if (
-    typeof updates.rating === "number" &&
-    updates.rating >= 1 &&
-    updates.rating <= 5
-  ) {
-    toUpdate.rating = updates.rating;
+  // Coerce rating (allow numeric strings)
+  if ("rating" in updates) {
+    const r = parseNullableNumber(updates.rating);
+    if (r === null && updates.rating === null) {
+      toUpdate.rating = null;
+    } else if (typeof r === "number" && r >= 1 && r <= 5) {
+      toUpdate.rating = r;
+    }
   }
 
   const { data, error } = await supabase
@@ -39,15 +72,19 @@ export async function updateUserMovie(
 export async function getUserFavoriteMovies(userId: string) {
   const { data, error } = await supabase
     .from("user_movies")
+    // Return user_movies columns (rating/is_favorite) along with nested movie data
     .select(
       `
       movie_id,
+      rating,
+      is_favorite,
       movies (
         id,
         title,
         thumbnail_url,
         genre,
-        source
+        source,
+        rating
       )
     `,
     )
@@ -57,12 +94,6 @@ export async function getUserFavoriteMovies(userId: string) {
   if (error) throw new Error(error.message);
   return data;
 }
-export async function getRatingMovies(movieId: string) {
-  const { data, error } = await supabase
-    .from("user_movies")
-    .select(`rating`)
-    .eq("movie_id", movieId);
-}
 
 export async function insertFavoriteRatingUserMovie(
   userId: string,
@@ -70,23 +101,27 @@ export async function insertFavoriteRatingUserMovie(
   favorite: boolean | null,
   rating: number | null,
 ) {
-  if (rating !== null && (rating < 1 || rating > 5)) {
+  // Coerce inputs to proper types (accept strings from client)
+  const fav = parseNullableBoolean(favorite);
+  const r = parseNullableNumber(rating);
+
+  if (r !== null && (r < 1 || r > 5)) {
     throw new Error("Rating must be between 1 and 5");
   }
 
+  // Build payload for upsert. IMPORTANT: only include is_favorite when the
+  // caller explicitly provided it (fav !== null). This avoids wiping out an
+  // existing favorite flag when the client only sends a rating.
+  const payload: any = {
+    user_id: userId,
+    movie_id: movieId,
+    rating: r,
+  };
+  if (fav !== null) payload.is_favorite = fav;
+
   const { data, error } = await supabase
     .from("user_movies")
-    .upsert(
-      [
-        {
-          user_id: userId,
-          movie_id: movieId,
-          is_favorite: favorite,
-          rating: rating,
-        },
-      ],
-      { onConflict: "user_id, movie_id" },
-    )
+    .upsert([payload], { onConflict: "user_id, movie_id" })
     .select();
 
   if (error) throw new Error(error.message);
@@ -141,9 +176,7 @@ export async function updateUserMovieComment(
 ) {
   const toUpdate: Record<string, any> = {};
 
-  if (updates.content === "string") {
-    toUpdate.content = updates.content;
-  } else {
+  if (typeof updates.content === "string") {
     toUpdate.content = updates.content;
   }
 
@@ -176,6 +209,17 @@ export async function getUserMovieComments(user_id: string, movie_id: string) {
   return data;
 }
 
+// Returns all comments for a given movie (across users)
+export async function getCommentsForMovie(movie_id: string) {
+  const { data, error } = await supabase
+    .from("comments")
+    .select()
+    .eq("user_movie_movie_id", movie_id);
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function getCommentById(commentId: string) {
   const { data, error } = await supabase
     .from("comments")
@@ -196,4 +240,38 @@ export async function getUserMovieMovies(user_id: string, movie_id: string) {
 
   if (error) throw new Error(error.message);
   return data;
+}
+
+// Returns all ratings made by a user as an array of { movie_id, rating }
+export async function getUserRatings(user_id: string) {
+  const { data, error } = await supabase
+    .from("user_movies")
+    .select("movie_id, rating")
+    .eq("user_id", user_id)
+    .not("rating", "is", null);
+
+  if (error) throw new Error(error.message);
+  // Coerce rating to numbers and filter out invalid entries
+  return (data || []).map((row: any) => ({
+    movie_id: row.movie_id,
+    rating: row.rating == null ? null : Number(row.rating),
+  }));
+}
+export async function getRatingMovies(movie_id: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("user_movies")
+    .select("rating")
+    .eq("movie_id", movie_id);
+  if (error) throw new Error(error.message);
+  // Coerce ratings to numbers to avoid string/undefined issues returned by Supabase
+  const ratings = data
+    .map((item: any) => {
+      const n = Number(item?.rating);
+      return Number.isFinite(n) ? n : null;
+    })
+    .filter((r: any) => r !== null) as number[];
+  if (ratings.length === 0) return 0;
+  const avgRating = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+  // Round to 1 decimal (e.g., 3.6) which is the desired UI display precision
+  return parseFloat(avgRating.toFixed(1));
 }

@@ -44,7 +44,11 @@ export async function addMovie(
   rating?: number,
   extras?: { director?: string | null},
 ) {
-  const baseRecord: any = { id, title, thumbnail_url, genre, source ,rating};
+  // Build payload carefully: only include rating when it's a valid number between 1 and 5
+  const baseRecord: any = { id, title, thumbnail_url, genre, source };
+  if (typeof rating === 'number' && Number.isFinite(rating) && rating >= 1 && rating <= 5) {
+    baseRecord.rating = rating;
+  }
   if (extras && typeof extras.director !== "undefined") baseRecord.director = extras.director;
  
   // Try insert with extras; if columns don't exist, fallback to base fields
