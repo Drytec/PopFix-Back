@@ -11,7 +11,6 @@ import {
   deleteUserMovieComment,
   getUserMovieMovies,
   getRatingMovies,
-
 } from "../services/user_movie";
 
 import {
@@ -148,7 +147,7 @@ export async function insertFavoriteRating(req: Request, res: Response) {
       duration,
       rating,
     } = req.body;
-  
+
     if (!userId || !movieId) {
       return res
         .status(400)
@@ -169,7 +168,6 @@ export async function insertFavoriteRating(req: Request, res: Response) {
         throw err;
       }
     }
-
 
     if (!movie) {
       if (!title || !thumbnail_url || !genre || !source) {
@@ -203,7 +201,9 @@ export async function insertFavoriteRating(req: Request, res: Response) {
       rating,
     );
     const sugestedRatings = await getRatingMovies(movieId);
-    const newMovie= await updateMovieById(movieId,{rating:sugestedRatings})
+    const newMovie = await updateMovieById(movieId, {
+      rating: sugestedRatings,
+    });
 
     // Duración opcional: si cliente envía duration_seconds, devolvemos también los segundos y el formato solicitado
     let durationFormatted: string | null = null;
@@ -243,7 +243,9 @@ export async function addUserMovieComment(req: Request, res: Response) {
     let is_favorite: boolean;
     let rating_num: any;
 
-    if (!getUserMovieMovies(userId, movieId)) {
+    const userMovie = await getUserMovieMovies(userId, movieId);
+
+    if (!userMovie) {
       is_favorite = false;
       rating_num = null;
     } else {
@@ -340,14 +342,13 @@ export async function deleleComment(req: Request, res: Response) {
   }
 }
 
-export async function getMovieByIdController(req:Request, res:Response) {
-  try{
-    const {movie_id}= req.body;
-    console.log(movie_id)
-    const movie=await getMovieById(movie_id);
+export async function getMovieByIdController(req: Request, res: Response) {
+  try {
+    const { movie_id } = req.body;
+    console.log(movie_id);
+    const movie = await getMovieById(movie_id);
     return res.status(200).json(movie);
-
-  }catch(err:any){
-     return res.status(500).json({ error: err.message });
-  } 
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
 }
