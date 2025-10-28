@@ -290,18 +290,22 @@ export async function logoutUser(req: Request, res: Response) {
 }
 export async function changePasswordUser(req: Request, res: Response) {
   try {
-    const { id } = req.params;
-    const { oldPassword, newPassword } = req.body;
+    // Obtener id del parámetro o del token (establecido por authMiddleware)
+  const { id: paramId } = req.params;
+  const { oldPassword, currentPassword, newPassword } = req.body || {};
+  const oldPasswordVal = oldPassword || currentPassword;
+  const newPasswordVal = newPassword;
+  const id = paramId || (req as any).user?.id;
     const user = await getUserById(id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    if (!oldPassword || !newPassword) {
+    if (!oldPasswordVal || !newPasswordVal) {
       return res
         .status(400)
         .json({ error: "Old and new passwords are required" });
     }
-    const newPwd = await changePassword(id, oldPassword, newPassword);
+    const newPwd = await changePassword(id, oldPasswordVal, newPasswordVal);
     if (!newPwd) {
       return res.status(400).json({ error: "Password change failed" });
     }
