@@ -106,19 +106,19 @@ export async function insertFavoriteRatingUserMovie(
     throw new Error("Rating must be between 1 and 5");
   }
 
+  // Build payload for upsert. IMPORTANT: only include is_favorite when the
+  // caller explicitly provided it (fav !== null). This avoids wiping out an
+  // existing favorite flag when the client only sends a rating.
+  const payload: any = {
+    user_id: userId,
+    movie_id: movieId,
+    rating: r,
+  };
+  if (fav !== null) payload.is_favorite = fav;
+
   const { data, error } = await supabase
     .from("user_movies")
-    .upsert(
-      [
-        {
-          user_id: userId,
-          movie_id: movieId,
-          is_favorite: fav,
-          rating: r,
-        },
-      ],
-      { onConflict: "user_id, movie_id" },
-    )
+    .upsert([payload], { onConflict: "user_id, movie_id" })
     .select();
 
   if (error) throw new Error(error.message);
@@ -237,6 +237,22 @@ export async function getUserMovieMovies(user_id: string, movie_id: string) {
 
   if (error) throw new Error(error.message);
   return data;
+}
+
+// Returns all ratings made by a user as an array of { movie_id, rating }
+export async function getUserRatings(user_id: string) {
+  const { data, error } = await supabase
+    .from('user_movies')
+    .select('movie_id, rating')
+    .eq('user_id', user_id)
+    .not('rating', 'is', null);
+
+  if (error) throw new Error(error.message);
+  // Coerce rating to numbers and filter out invalid entries
+  return (data || []).map((row: any) => ({
+    movie_id: row.movie_id,
+    rating: row.rating == null ? null : Number(row.rating),
+  }));
 }
 export async function getRatingMovies(movie_id: string): Promise<number> {
 

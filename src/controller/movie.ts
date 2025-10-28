@@ -12,6 +12,7 @@ import {
   deleteUserMovieComment,
   getUserMovieMovies,
   getRatingMovies,
+  getUserRatings,
 
 } from "../services/user_movie";
 
@@ -52,7 +53,8 @@ export async function getMixed(req: Request, res: Response) {
     const opts: any = {};
     if (typeof quality === "string") opts.quality = quality as any;
     if (typeof maxWidth === "string") opts.maxWidth = Number(maxWidth);
-    const movies = await getPopularMoviesMapped(perPage, opts);
+    const userId = typeof req.query.userId === 'string' ? req.query.userId : undefined;
+    const movies = await getPopularMoviesMapped(perPage, opts, userId);
     return res.status(200).json(movies);
   } catch (err: any) {
     console.error("Error fetching mixed movies:", err.message);
@@ -276,9 +278,10 @@ export async function addUserMovieComment(req: Request, res: Response) {
       rating_num = userMovieRow.rating ?? null;
     }
 
-    const user_data: any = await getUserById(userId);
-    const user_name: string = user_data.name;
-    const user_surname: string = user_data.surname;
+  const user_data: any = await getUserById(userId);
+  const user_name: string = user_data.name;
+  // Sanitize backend placeholder values like 'N/A' -> treat as empty
+  const user_surname: string = (user_data.surname && user_data.surname !== 'N/A') ? user_data.surname : '';
 
     let avatar: string;
 
@@ -437,7 +440,7 @@ export async function getMovieDetailsController(req: Request, res: Response) {
       try {
         const author = await getUserById(String(c.user_movie_user_id));
         const author_name = author?.name || '';
-        const author_surname = author?.surname || '';
+        const author_surname = (author?.surname && author.surname !== 'N/A') ? author.surname : '';
         const avatar = c.avatar || ((author_name && author_surname) ? (author_name[0] + author_surname[0]).toUpperCase() : (author_name ? author_name.substring(0,2).toUpperCase() : ''));
         comments.push({ ...c, author_name, author_surname, avatar });
       } catch (e) {
@@ -449,6 +452,18 @@ export async function getMovieDetailsController(req: Request, res: Response) {
   } catch (err: any) {
     console.error('Error getting movie details:', err);
     return res.status(500).json({ error: 'Failed to get movie details' });
+  }
+}
+
+export async function getUserRatingsController(req: Request, res: Response) {
+  try {
+    const { userId } = req.params;
+    if (!userId) return res.status(400).json({ error: 'Missing userId parameter' });
+    const ratings = await getUserRatings(userId);
+    return res.status(200).json({ ratings });
+  } catch (err: any) {
+    console.error('Error fetching user ratings:', err?.message || err);
+    return res.status(500).json({ error: 'Failed to fetch user ratings' });
   }
 }
 
@@ -518,7 +533,30 @@ export async function setRating(req: Request, res: Response) {
     console.debug('[DEBUG] setRating computed suggestedRatings:', { movieId, sugestedRatings, userId, incomingRating: rnum });
     let newMovie: any = null;
     if (typeof sugestedRatings === 'number' && sugestedRatings >= 1) {
-      newMovie = await updateMovieById(movieId, { rating: sugestedRatings });
+      // Ensure a movie row exists so the global rating can be merged into Pexels mapped results
+      let existing = null;
+      try {
+        existing = await getMovieById(movieId);
+      } catch (e) {
+        existing = null;
+      }
+      if (!existing) {
+        try {
+          // Create a minimal movie record so movie.rating can be stored and later merged.
+          // Use a fallback title/genre; frontends that originated the event usually have full metadata and will create richer records via insertFavoriteRating route.
+          const created = await addMovie(movieId, `Video ${movieId}`, '', 'Video', '', sugestedRatings);
+          newMovie = Array.isArray(created) ? created[0] : created;
+        } catch (e) {
+          // If create fails, still attempt to update (may fail silently)
+          try {
+            newMovie = await updateMovieById(movieId, { rating: sugestedRatings });
+          } catch (ee) {
+            newMovie = null;
+          }
+        }
+      } else {
+        newMovie = await updateMovieById(movieId, { rating: sugestedRatings });
+      }
     }
 
     // Return Spanish confirmation and include the user's own rating for convenience

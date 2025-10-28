@@ -16,7 +16,8 @@ import {
   deleleComment,
   deleteFavorite,
   getMovieByIdController
-  , getMovieDetailsController
+  , getMovieDetailsController,
+  getUserRatingsController
 } from "../controller/movie";
 import { getMovieById } from "../services/movie";
 
@@ -26,6 +27,7 @@ router.get("/mixed", getMixed);
 router.get("/by-genre", getByGenrePexels);
 router.get("/search", searchMoviesController);
 router.get("/favorites/:userId", getFavoriteMovies);
+router.get("/ratings/:userId", getUserRatingsController);
 router.put("/updateMovie/:userId", updateMoviebyUser);
 router.post("/insertFavoriteRating/:userId", insertFavoriteRating);
 // New: separate endpoints for favorites and ratings
