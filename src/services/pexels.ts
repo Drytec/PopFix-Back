@@ -4,6 +4,8 @@ const PEXELS_BASE_URL = "https://api.pexels.com";
 const HARDCODED_PEXELS_API_KEY = ""; // TODO: put your key here if desired
 const API_KEY = HARDCODED_PEXELS_API_KEY || process.env.PEXELS_API_KEY || "";
 
+import { supabase } from "../config/database";
+
 export type MovieSummary = {
   id: string;
   title: string;
@@ -194,9 +196,62 @@ function mapPexelsVideoToMovieShape(video: any, opts: SourceSelectOptions = {}) 
 export async function getPopularMoviesMapped(
   perPage = 10,
   opts: SourceSelectOptions = {},
+  userId?: string,
 ) {
   const videos = await getPopularMovies(perPage);
-  return videos.map((v: any) => mapPexelsVideoToMovieShape(v, opts));
+  const mapped = videos.map((v: any) => mapPexelsVideoToMovieShape(v, opts));
+
+  // Try to fetch any existing movies from our DB that match these Pexels IDs
+  // so we can use the persisted average rating when available.
+  try {
+    const ids = mapped.map((m: any) => m.id).filter(Boolean);
+    if (ids.length > 0) {
+      const { data: dbMovies, error } = await supabase
+        .from("movies")
+        .select("id, rating")
+        .in("id", ids as any[]);
+      if (!error && Array.isArray(dbMovies)) {
+        const ratingById: Record<string, number> = {};
+        for (const r of dbMovies) {
+          if (r && typeof r.id !== "undefined" && typeof r.rating === "number") {
+            ratingById[String(r.id)] = Number(r.rating);
+          }
+        }
+        // If a userId was provided, fetch user's own ratings for these movie ids
+        const userRatingById: Record<string, number> = {};
+        if (userId) {
+          try {
+            const { data: umData, error: umError } = await supabase
+              .from('user_movies')
+              .select('movie_id, rating')
+              .eq('user_id', userId)
+              .in('movie_id', ids as any[]);
+            if (!umError && Array.isArray(umData)) {
+              for (const u of umData) {
+                if (u && typeof u.movie_id !== 'undefined' && typeof u.rating === 'number') {
+                  userRatingById[String(u.movie_id)] = Number(u.rating);
+                }
+              }
+            }
+          } catch (e) {
+            // ignore user rating merge failures
+          }
+        }
+        // Override mapped rating with DB value when present
+        return mapped.map((m: any) => ({
+          ...m,
+          rating: typeof ratingById[m.id] === "number" ? ratingById[m.id] : m.rating,
+          userRating: typeof userRatingById[m.id] === 'number' ? userRatingById[m.id] : undefined,
+        }));
+      }
+    }
+  } catch (e) {
+    // If DB lookup fails, fall back to deterministic mapping from Pexels
+    // (don't crash the whole endpoint)
+    console.warn("Warning: failed to merge DB ratings into Pexels mapped results:", e);
+  }
+
+  return mapped;
 }
 
 // Helper requested by frontend: fetches videos by genre and returns MovieSummary[]
