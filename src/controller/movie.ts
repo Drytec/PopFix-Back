@@ -7,6 +7,7 @@ import {
   insertUserMovieComment,
   updateUserMovieComment,
   getUserMovieComments,
+  getCommentsForMovie,
   getCommentById,
   deleteUserMovieComment,
   getUserMovieMovies,
@@ -148,6 +149,12 @@ export async function insertFavoriteRating(req: Request, res: Response) {
       duration,
       rating,
     } = req.body;
+
+    // DEBUG: log incoming request for troubleshooting favorites issues
+    console.debug('[DEBUG] insertFavoriteRating called', {
+      params: req.params,
+      body: req.body,
+    });
   
     if (!userId || !movieId) {
       return res
@@ -172,10 +179,11 @@ export async function insertFavoriteRating(req: Request, res: Response) {
 
 
     if (!movie) {
-      if (!title || !thumbnail_url || !genre || !source) {
+      // allow source to be optional (some providers don't provide a source URL)
+      if (!title || !thumbnail_url || !genre) {
         return res.status(400).json({
           error:
-            "Missing movie data to create new entry (title, thumbnail_url, genre, source)",
+            "Missing movie data to create new entry (title, thumbnail_url, genre)",
         });
       }
 
@@ -184,7 +192,7 @@ export async function insertFavoriteRating(req: Request, res: Response) {
         title,
         thumbnail_url,
         genre,
-        source,
+        source || null,
         rating,
       );
       if (
@@ -202,8 +210,18 @@ export async function insertFavoriteRating(req: Request, res: Response) {
       favorite,
       rating,
     );
+
+    // Recalculate suggested rating (average). Only update movie.rating when
+    // the computed value is a valid rating (>= 1). Some flows return 0 when
+    // there are no ratings yet and writing 0 violates the DB check constraint.
     const sugestedRatings = await getRatingMovies(movieId);
-    const newMovie= await updateMovieById(movieId,{rating:sugestedRatings})
+    let newMovie: any = movie;
+    if (typeof sugestedRatings === 'number' && sugestedRatings >= 1) {
+      newMovie = await updateMovieById(movieId, { rating: sugestedRatings });
+    } else {
+      // Skip updating movie.rating to avoid DB constraint violation
+      newMovie = movie;
+    }
 
     // Duración opcional: si cliente envía duration_seconds, devolvemos también los segundos y el formato solicitado
     let durationFormatted: string | null = null;
@@ -220,6 +238,8 @@ export async function insertFavoriteRating(req: Request, res: Response) {
     return res.status(201).json({
       message: "Favorite and rating inserted successfully",
       data: result,
+      suggestedRating: sugestedRatings,
+      updatedMovie: newMovie,
       duration: durationSecondsEcho, // duración en segundos
       duration_formatted: durationFormatted, // string amigable "Xh Ym" | "Xm" | "Zs"
     });
@@ -240,16 +260,20 @@ export async function addUserMovieComment(req: Request, res: Response) {
       return res.status(400).json({ error: "Missing userId parameter." });
     }
 
-    let is_favorite: boolean;
-    let rating_num: any;
+    // Determine existing user_movie row (if any) to inherit favorite/rating
+    let is_favorite = false;
+    let rating_num: number | null = null;
+    let userMovieRow: any = null;
+    try {
+      userMovieRow = await getUserMovieMovies(userId, movieId);
+    } catch (e) {
+      userMovieRow = null;
+    }
 
-    if (!getUserMovieMovies(userId, movieId)) {
-      is_favorite = false;
-      rating_num = null;
-    } else {
-      const { favorite, rating } = await getUserMovieMovies(userId, movieId);
-      is_favorite = favorite;
-      rating_num = rating;
+    if (userMovieRow) {
+      // DB column is likely `is_favorite` and `rating`
+      is_favorite = !!userMovieRow.is_favorite;
+      rating_num = userMovieRow.rating ?? null;
     }
 
     const user_data: any = await getUserById(userId);
@@ -258,9 +282,18 @@ export async function addUserMovieComment(req: Request, res: Response) {
 
     let avatar: string;
 
-    const name_array: string[] = [user_name, user_surname];
-
-    avatar = (name_array[0][0] + name_array[1][0]).toUpperCase();
+    const name_array: string[] = [user_name || "", user_surname || ""];
+    // Build avatar initials: if we have surname, use first letter of name + first of surname (MR).
+    // If only one name exists, use first two letters of the name (MI for Michael).
+    const first = (name_array[0] || "").trim();
+    const second = (name_array[1] || "").trim();
+    if (first && second) {
+      avatar = (first[0] + second[0]).toUpperCase();
+    } else if (first) {
+      avatar = first.substring(0, 2).toUpperCase();
+    } else {
+      avatar = "US"; // fallback initials
+    }
 
     const comment = await insertUserMovieComment(
       userId,
@@ -270,9 +303,17 @@ export async function addUserMovieComment(req: Request, res: Response) {
       text,
       avatar,
     );
+    // Attach author name to response so frontend can display the comment with the user's name
+    const responseComment = {
+      ...comment,
+      author_name: user_name,
+      author_surname: user_surname,
+      avatar,
+    };
+
     return res.status(200).json({
       message: "Comment created and inserted correctly",
-      comment,
+      comment: responseComment,
     });
   } catch (err: any) {
     console.error("Error adding comment to movie:", err.message);
@@ -340,6 +381,24 @@ export async function deleleComment(req: Request, res: Response) {
   }
 }
 
+export async function deleteFavorite(req: Request, res: Response) {
+  try {
+    const { userId, movieId } = req.params as any;
+    // DEBUG: log delete favorite requests
+    console.debug('[DEBUG] deleteFavorite called', { params: req.params });
+    if (!userId || !movieId) {
+      return res.status(400).json({ error: "Missing userId or movieId" });
+    }
+
+    // Set is_favorite to false (explicitly un-favorite). We keep the row for rating/history.
+    const updated = await updateUserMovie(userId, movieId, { is_favorite: false });
+    return res.status(200).json({ message: "Favorite removed", data: updated });
+  } catch (err: any) {
+    console.error("Error deleting favorite:", err.message);
+    return res.status(500).json({ error: err.message || "Failed to remove favorite" });
+  }
+}
+
 export async function getMovieByIdController(req:Request, res:Response) {
   try{
     const {movie_id}= req.body;
@@ -350,4 +409,122 @@ export async function getMovieByIdController(req:Request, res:Response) {
   }catch(err:any){
      return res.status(500).json({ error: err.message });
   } 
+}
+
+export async function getMovieDetailsController(req: Request, res: Response) {
+  try {
+    const movieId = req.params.movieId;
+    const userId = req.query.userId as string | undefined;
+    if (!movieId) return res.status(400).json({ error: 'movieId required' });
+
+    const movie = await getMovieById(movieId);
+
+    // Get user's rating if userId provided
+    let userRating: number | null = null;
+    if (userId) {
+      try {
+        const um = await getUserMovieMovies(userId, movieId);
+        if (um && typeof um.rating === 'number') userRating = um.rating;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // Get all comments for the movie and attach author name / surname
+    const commentsRaw = await getCommentsForMovie(movieId);
+    const comments: any[] = [];
+    for (const c of commentsRaw) {
+      try {
+        const author = await getUserById(String(c.user_movie_user_id));
+        const author_name = author?.name || '';
+        const author_surname = author?.surname || '';
+        const avatar = c.avatar || ((author_name && author_surname) ? (author_name[0] + author_surname[0]).toUpperCase() : (author_name ? author_name.substring(0,2).toUpperCase() : ''));
+        comments.push({ ...c, author_name, author_surname, avatar });
+      } catch (e) {
+        comments.push({ ...c });
+      }
+    }
+
+    return res.status(200).json({ movie, userRating, comments });
+  } catch (err: any) {
+    console.error('Error getting movie details:', err);
+    return res.status(500).json({ error: 'Failed to get movie details' });
+  }
+}
+
+export async function addFavorite(req: Request, res: Response) {
+  try {
+    const userId = req.params.userId;
+    const { movieId, title, thumbnail_url, genre, source, duration_seconds, duration } = req.body;
+
+    if (!userId || !movieId) {
+      return res.status(400).json({ error: "Missing userId or movieId parameter" });
+    }
+
+    // Ensure movie exists (same logic as insertFavoriteRating)
+    let movie;
+    try {
+      movie = await getMovieById(movieId);
+    } catch (err: any) {
+      if (err.message.includes("No rows found") || err.message.includes("single()")) {
+        movie = null;
+      } else {
+        throw err;
+      }
+    }
+
+    if (!movie) {
+      if (!title || !thumbnail_url || !genre) {
+        return res.status(400).json({ error: "Missing movie data to create new entry (title, thumbnail_url, genre)" });
+      }
+      const createdMovie = await addMovie(movieId, title, thumbnail_url, genre, source || null, undefined);
+      if (!createdMovie || (Array.isArray(createdMovie) && createdMovie.length === 0)) {
+        return res.status(500).json({ error: "Failed to create movie" });
+      }
+      movie = Array.isArray(createdMovie) ? createdMovie[0] : createdMovie;
+    }
+
+    const result = await insertFavoriteRatingUserMovie(userId, movieId, true, null);
+    const sugestedRatings = await getRatingMovies(movieId);
+    let newMovie: any = movie;
+    if (typeof sugestedRatings === 'number' && sugestedRatings >= 1) {
+      newMovie = await updateMovieById(movieId, { rating: sugestedRatings });
+    }
+
+    return res.status(201).json({ message: 'Favorite added', data: result, suggestedRating: sugestedRatings, updatedMovie: newMovie });
+  } catch (err: any) {
+    console.error('Error adding favorite:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+}
+
+export async function setRating(req: Request, res: Response) {
+  try {
+    const userId = req.params.userId;
+    const { movieId, rating } = req.body;
+
+    if (!userId || !movieId) {
+      return res.status(400).json({ error: 'Missing userId or movieId parameter' });
+    }
+
+    const rnum = typeof rating === 'number' ? rating : Number(rating);
+    if (Number.isNaN(rnum) || rnum < 1 || rnum > 5) {
+      return res.status(400).json({ error: 'rating must be a number between 1 and 5' });
+    }
+
+    // Upsert rating (preserve favorite flag if exists)
+    const result = await insertFavoriteRatingUserMovie(userId, movieId, null, rnum);
+    const sugestedRatings = await getRatingMovies(movieId);
+    console.debug('[DEBUG] setRating computed suggestedRatings:', { movieId, sugestedRatings, userId, incomingRating: rnum });
+    let newMovie: any = null;
+    if (typeof sugestedRatings === 'number' && sugestedRatings >= 1) {
+      newMovie = await updateMovieById(movieId, { rating: sugestedRatings });
+    }
+
+    // Return Spanish confirmation and include the user's own rating for convenience
+    return res.status(200).json({ message: 'Listo, tu valoración ha sido guardada', data: result, userRating: rnum, suggestedRating: sugestedRatings, updatedMovie: newMovie });
+  } catch (err: any) {
+    console.error('Error setting rating:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
 }

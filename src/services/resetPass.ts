@@ -59,7 +59,7 @@ export async function sendResetPasswordEmail(to: string, token: string) {
   `;
 
   await resend.emails.send({
-    from: "Soporte PopFix <onboarding@resend.dev>", 
+    from: "Soporte PopFix <noreply@messagesmail.store>", 
     to,
     subject: "Restablecer Contraseña - Soporte PopFix",
     html: htmlContent,

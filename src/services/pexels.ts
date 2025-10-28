@@ -4,6 +4,8 @@ const PEXELS_BASE_URL = "https://api.pexels.com";
 const HARDCODED_PEXELS_API_KEY = ""; // TODO: put your key here if desired
 const API_KEY = HARDCODED_PEXELS_API_KEY || process.env.PEXELS_API_KEY || "";
 
+import { supabase } from "../config/database";
+
 export type MovieSummary = {
   id: string;
   title: string;
@@ -196,7 +198,35 @@ export async function getPopularMoviesMapped(
   opts: SourceSelectOptions = {},
 ) {
   const videos = await getPopularMovies(perPage);
-  return videos.map((v: any) => mapPexelsVideoToMovieShape(v, opts));
+  const mapped = videos.map((v: any) => mapPexelsVideoToMovieShape(v, opts));
+
+  // Try to fetch any existing movies from our DB that match these Pexels IDs
+  // so we can use the persisted average rating when available.
+  try {
+    const ids = mapped.map((m) => m.id).filter(Boolean);
+    if (ids.length > 0) {
+      const { data: dbMovies, error } = await supabase
+        .from("movies")
+        .select("id, rating")
+        .in("id", ids as any[]);
+      if (!error && Array.isArray(dbMovies)) {
+        const ratingById: Record<string, number> = {};
+        for (const r of dbMovies) {
+          if (r && typeof r.id !== "undefined" && typeof r.rating === "number") {
+            ratingById[String(r.id)] = Number(r.rating);
+          }
+        }
+        // Override mapped rating with DB value when present
+        return mapped.map((m) => ({ ...m, rating: typeof ratingById[m.id] === "number" ? ratingById[m.id] : m.rating }));
+      }
+    }
+  } catch (e) {
+    // If DB lookup fails, fall back to deterministic mapping from Pexels
+    // (don't crash the whole endpoint)
+    console.warn("Warning: failed to merge DB ratings into Pexels mapped results:", e);
+  }
+
+  return mapped;
 }
 
 // Helper requested by frontend: fetches videos by genre and returns MovieSummary[]

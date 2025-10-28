@@ -3,6 +3,8 @@ import {
   getFavoriteMovies,
   updateMoviebyUser,
   insertFavoriteRating,
+  addFavorite,
+  setRating,
   getAllMovies,
   getMixed,
   getByGenrePexels,
@@ -12,7 +14,9 @@ import {
   getCommentsByUserMovie,
   getSingleComment,
   deleleComment,
+  deleteFavorite,
   getMovieByIdController
+  , getMovieDetailsController
 } from "../controller/movie";
 import { getMovieById } from "../services/movie";
 
@@ -24,11 +28,16 @@ router.get("/search", searchMoviesController);
 router.get("/favorites/:userId", getFavoriteMovies);
 router.put("/updateMovie/:userId", updateMoviebyUser);
 router.post("/insertFavoriteRating/:userId", insertFavoriteRating);
+// New: separate endpoints for favorites and ratings
+router.post("/favorite/:userId", addFavorite);
+router.put("/rating/:userId", setRating);
 router.post("/addUserMovieComment/:userId", addUserMovieComment);
 router.put("/editComment/:commentId", editUserMovieComment);
 router.delete("/deleteComment/:commentId", deleleComment);
+router.delete("/favorites/:userId/:movieId", deleteFavorite);
 router.get("/getUserMovieComments/", getCommentsByUserMovie);
 router.get("/getComment/:commentId", getSingleComment);
 router.get("/getMovie",getMovieByIdController);
+router.get("/details/:movieId", getMovieDetailsController);
 
 export default router;
